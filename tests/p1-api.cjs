@@ -1,0 +1,120 @@
+const assert = require('node:assert/strict')
+const createLoader = require('./load-ts.cjs')
+const domain = createLoader()('src/lib/sightings-domain.ts')
+const base = { id: 'one', observedAt: '2026-02-01T12:00:00Z', locationName: 'London', region: 'London', latitude: 51.5, longitude: 0, species: 'sheep', severity: 'low', source: 'community' }
+const plain = value => JSON.parse(JSON.stringify(value))
+function harness(local = [], external = [], options = {}) {
+  let calls = 0
+  const filters = []
+  const load = createLoader({ overrides: { 'src/lib/mysql.ts': {
+    listSightings: async filter => {
+      filters.push(filter)
+      if (options.localFailure) throw Error('Storage unavailable')
+      return local.filter(row => domain.matches(row, filter)).slice(0, domain.SOURCE_LIMIT + 1)
+    },
+  } }, globals: { fetch: async () => {
+    calls++
+    if (options.fetch) return options.fetch(calls)
+    return Response.json(external)
+  } } })
+  const service = load('src/lib/sightings-service.ts')
+  return { calls: () => calls, filters, get: (query = '', insights = false) => service.sightingsResponse(new Request(`http://test/api/sightings?${query}`), insights) }
+}
+;(async () => {
+  for (const query of ['from=2026-02-30','to=2025-02-29','from=2026-03-01&to=2026-02-01','region=oops',`species=${'x'.repeat(121)}`,`q=${'x'.repeat(121)}`]) {
+    const h = harness()
+    const response = await h.get(query)
+    assert.equal(response.status, 400, query)
+    assert.ok(Object.keys((await response.json()).errors).length)
+    assert.equal(h.calls(), 0)
+    assert.equal(h.filters.length, 0)
+  }
+  const raw = [base, { ...base }, { ...base, id: 'two' }, { ...base, id: undefined, notes: 'first' }, { ...base, id: undefined, notes: 'second' }]
+  const normalized = domain.normalizeRows(raw, 'external')
+  assert.equal(normalized.data.length, 4)
+  assert.equal(normalized.diagnostics.duplicates, 1)
+  assert.deepEqual(normalized.data.map(r => r.id).sort(), domain.normalizeRows([...raw].reverse(), 'external').data.map(r => r.id).sort())
+  const conflicting = [base, { ...base, notes: 'updated' }]
+  assert.deepEqual(plain(domain.normalizeRows(conflicting, 'external').data), plain(domain.normalizeRows(conflicting.reverse(), 'external').data))
+  const malformed = domain.normalizeRows([null, [], { ...base, observedAt: '2026-02-30' }, { ...base, locationName: {} }, { ...base, observedAt: '2026-02-01T25:00:00' }], 'external')
+  assert.equal(malformed.diagnostics.discarded, 5)
+  const inferred = domain.normalizeRows([{ id: 'upstream', date: '2025-08-14T17:30:00', location: '  London ', species: ' SHEEP TICK ' }], 'external')
+  assert.equal(inferred.data[0].observedAt, '2025-08-14T17:30:00.000Z')
+  assert.equal(inferred.data[0].species, 'sheep')
+  assert.equal(inferred.data[0].region, 'London')
+  assert.equal(inferred.data[0].severity, 'unknown')
+  assert.equal(inferred.diagnostics.inferredCoordinates, 1)
+  assert.equal(inferred.diagnostics.assumedUtc, 1)
+  const rawSpecies = domain.normalizeRows([
+    { ...base, id: 'fox', species: 'Fox/badger tick' },
+    { ...base, id: 'marsh', species: 'Marsh tick' },
+  ], 'external').data
+  assert.equal(rawSpecies[0].species, 'unknown')
+  assert.equal(rawSpecies[0].originalSpecies, 'Fox/badger tick')
+  assert.equal(domain.matches(rawSpecies[0], { from: '', to: '', region: '', species: 'Fox/badger tick', query: '' }), true)
+  assert.equal(domain.matches(rawSpecies[0], { from: '', to: '', region: '', species: 'Marsh tick', query: '' }), false)
+  const speciesApi = harness([], [
+    { ...base, id: 'fox', species: 'Fox/badger tick' },
+    { ...base, id: 'marsh', species: 'Marsh tick' },
+  ])
+  const speciesResult = await (await speciesApi.get()).json()
+  assert.ok(speciesResult.meta.speciesOptions.some(option => option.label === 'Fox/badger tick'))
+  assert.ok(speciesResult.meta.speciesOptions.some(option => option.label === 'Marsh tick'))
+  assert.deepEqual(speciesResult.meta.speciesOptions.map(option => option.label), ['Fox/badger tick', 'Hedgehog tick', 'Marsh tick', 'Ornate cow tick', 'Sheep tick', 'Unknown'])
+  assert.equal(speciesResult.meta.speciesOptions.find(option => option.label === 'Fox/badger tick').count, 1)
+  assert.equal(speciesResult.meta.speciesOptions.find(option => option.label === 'Marsh tick').count, 1)
+  assert.equal(speciesResult.meta.speciesOptions.find(option => option.label === 'Hedgehog tick').count, 0)
+  assert.equal(speciesResult.meta.speciesOptions.reduce((sum, option) => sum + option.count, 0), 2)
+  assert.equal(speciesResult.meta.placeOptions.filter(option => option.value.toLowerCase() === 'london').length, 1)
+  assert.ok(speciesResult.meta.placeOptions.some(option => option.value === 'London' && option.kind === 'place & region'))
+  const foxFiltered = await (await speciesApi.get(`species=${encodeURIComponent('Fox/badger tick')}`)).json()
+  assert.equal(foxFiltered.data.length, 1)
+  assert.equal(foxFiltered.data[0].originalSpecies, 'Fox/badger tick')
+  assert.equal(foxFiltered.meta.speciesOptions.find(option => option.label === 'Fox/badger tick').count, 1)
+  const badCoordinates = domain.normalizeRows([{ ...base, latitude: false, longitude: [] }, { ...base, id: 'unknown', locationName: 'Unmapped Park', latitude: null, longitude: null, region: '???', species: '???' }], 'external')
+  assert.equal(badCoordinates.data[0].latitude, null)
+  assert.equal(badCoordinates.data[0].longitude, null)
+  assert.equal(badCoordinates.data[1].region, 'Unknown')
+  const mixed = harness([base], [base])
+  const mixedData = await (await mixed.get()).json()
+  assert.equal(mixedData.data.length, 2, 'No unsupported cross-source merging')
+  assert.notEqual(mixedData.data[0].id, mixedData.data[1].id)
+  const rows = Array.from({ length: 650 }, (_, i) => ({ ...base, id: String(i).padStart(4, '0'), observedAt: i === 649 ? '2020-01-01T00:00:00Z' : base.observedAt, locationName: i === 649 ? 'Older Target Park' : 'London' }))
+  const h = harness(rows, [{ ...base, id: 'external' }])
+  const first = await (await h.get()).json()
+  assert.equal(first.data.length, 651)
+  assert.equal(first.meta.total, 651)
+  assert.equal(first.meta.mapScope, 'all-matching-records')
+  assert.equal(new Set(first.data.map(row => row.id)).size, 651)
+  assert.equal(first.meta.totalPages, undefined)
+  // Old pagination parameters cannot hide matches.
+  assert.equal((await (await h.get('page=2&pageSize=1')).json()).data.length, 651)
+  const target = await (await h.get('q=Older%20Target')).json()
+  assert.equal(target.meta.total, 1)
+  assert.equal(target.data[0].locationName, 'Older Target Park')
+  assert.equal(h.filters.at(-1).query, undefined, 'Local query search runs after collecting suggestion candidates')
+  assert.ok(target.meta.placeOptions.some(option => option.value === 'London'))
+  assert.ok(target.meta.placeOptions.some(option => option.value === 'Older Target Park'))
+  const insights = await (await h.get('', true)).json()
+  assert.equal(insights.total, first.meta.total)
+  assert.equal(insights.trend.reduce((sum, row) => sum + row.count, 0), 651)
+  assert.deepEqual(insights.trend.map(row => row.period), ['2020-01','2026-02'])
+  assert.equal((await (await h.get('q=Older%20Target', true)).json()).total, 1)
+  assert.equal(h.calls(), 1, 'Successful upstream is cached across filters and insights')
+  const limited = harness(Array.from({ length: 10001 }, (_, i) => ({ ...base, id: String(i) })))
+  assert.equal((await (await limited.get()).json()).meta.truncated, true)
+  const oversized = harness([], [], { fetch: () => new Response('[]', { headers: { 'content-length': '6000000' } }) })
+  assert.equal((await (await oversized.get()).json()).meta.externalAvailable, false)
+  assert.equal(oversized.calls(), 1)
+  const retry = harness([], [], { fetch: n => n === 1 ? new Response('', { status: 503 }) : Response.json([base]) })
+  assert.equal((await (await retry.get()).json()).meta.externalAvailable, true)
+  assert.equal(retry.calls(), 2)
+  const failure = harness([], [], { localFailure: true, fetch: () => Response.json({ wrong: [] }) })
+  assert.equal((await failure.get()).status, 503)
+  await failure.get(); assert.equal(failure.calls(), 1, 'Failure cooldown prevents retry storms')
+  const partial = harness([], [base], { localFailure: true })
+  assert.equal((await (await partial.get()).json()).meta.localAvailable, false)
+  const pageEnvelope = harness([], [], { fetch: () => Response.json({ data: [base], meta: { hasMore: true } }) })
+  assert.equal((await (await pageEnvelope.get()).json()).meta.truncated, true)
+  console.log('P1 API checks passed: query validation, normalization/diagnostics, stable IDs/deduplication, 650-record single-view/search, shared insight totals/trends, limits, retry/cache/cooldown and source failures.')
+})().catch(error => { console.error(error); process.exitCode = 1 })
