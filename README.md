@@ -1,8 +1,43 @@
+> **Author:** [Anini Pandiyan Sathya](https://www.linkedin.com/in/aninisrinivasan/)
+
 # TickWatch UK — UK Tick Sighting Explorer
 
 A local demo for exploring and reporting UK tick sightings. Built with Next.js,
 React, Tailwind CSS and Leaflet. Community reports are stored in MySQL; optional
 report photos use the existing Payload Media collection.
+
+## Tech stack
+
+Versions below reflect the project manifest and tool configuration.
+
+| Layer | Technologies | Role |
+| --- | --- | --- |
+| Frontend | Next.js 16.4.2, React 19.3.1, TypeScript 6.0.3 | App Router pages, interactive UI and typed application logic |
+| Styling | Tailwind CSS 4, PostCSS, custom CSS | Responsive layouts, themes and accessibility preferences |
+| Maps | Leaflet 1.9, Leaflet.heat, OpenStreetMap tiles | Sighting markers, reported-density heatmap and location picker |
+| Charts | React, CSS and SVG | Monthly bar charts and regional line chart |
+| Main API | Next.js Route Handlers, Node.js | Sighting queries, validation, report submission and insights |
+| Report storage | MySQL, mysql2 | Community sightings and photo references |
+| CMS and media | Payload CMS 4.0.0-beta.3, `@payloadcms/figma`, GraphQL | Admin interface, media collections and CMS APIs |
+| Image processing | Sharp | Photo validation, resizing and WebP conversion |
+| Optional API proxy | NestJS 12, Express adapter, RxJS | Compatibility routes forwarding to the Next.js backend |
+| Accessibility | Web Speech API, browser localStorage | Read-aloud and saved display preferences |
+| Development | Node.js 24.22.1, pnpm 10.34.9, Mise, Oxfmt | Runtime, dependency management and formatting |
+| AI-assisted coding | AI coding assistance | Used during project development |
+| Regression checks | Node.js assertions, Playwright (separate test setup) | API, storage and browser checks |
+
+## Features
+
+- Explore combined community and external sightings with place search, date,
+  region and species filters.
+- View reports on a UK map, switch to a density heatmap, and share a selected
+  sighting through its URL.
+- Compare monthly reporting trends for a selected location, its region and the
+  UK, with independent year controls.
+- Submit sightings with an optional map pin, field notes and photo.
+- Browse the field guide and tick identification cards, with read-aloud,
+  adjustable text size and high-contrast preferences.
+- See source availability and truncation notices when data is incomplete.
 
 ## Run locally
 
@@ -155,6 +190,22 @@ skipped. Map date/species filters do not directly restrict these chart totals.
 The optional proxy needs `NEXT_BACKEND_URL` set to the Next.js origin. It listens
 on `API_PORT` (default 4000). Its sightings routes are `/api/sightings` and
 `/api/sightings/insights`; the direct Next.js insights route is `/api/insights`.
+`FRONTEND_ORIGIN` optionally restricts the proxy's CORS origin. Its POST route
+forwards JSON reports; submit photo uploads directly to the Next.js API.
+
+## Application endpoints
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/sightings` | Combined, filtered sightings and source metadata |
+| `POST` | `/api/sightings` | Submit a JSON report, or a multipart report with a `photo` file |
+| `GET` | `/api/insights` | Aggregated sightings and source metadata |
+| `GET` | `/admin` | Payload admin interface; requires the configured backend and admin access |
+
+The sightings and insights GET routes accept `from`, `to`, `region`, `species`
+and `q` query parameters. Dates use `YYYY-MM-DD`.
+
+## Repository notes
 
 `.figma` deployment files have been removed. `README.md` is the only Markdown
 file maintained in the project source. `agentRules: false` in `next.config.ts`
