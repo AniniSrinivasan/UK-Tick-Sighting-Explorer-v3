@@ -587,7 +587,7 @@ export default function TickWatch() {
         {resultMeta.truncated && viewState === 'ready' && <p role="status" className="mb-3 rounded-xl bg-[#443919] p-3 text-sm">Results reached the source limit. Totals cover the retrieved subset; narrow your dates or location for more complete results.</p>}
         {unmappedCount > 0 && <p role="status" className="mb-3 text-sm text-[#aabbb2]">{unmappedCount} {unmappedCount === 1 ? 'report has' : 'reports have'} no complete coordinates and cannot be shown on the map.</p>}
         {status && <p className="mb-3 rounded-xl bg-[#243a31] px-4 py-3 text-sm" role="status">{status}</p>}
-        <div id="map" className="isolate grid min-h-[610px] overflow-hidden rounded-2xl border border-[#30443c] bg-[#172420]  lg:grid-cols-[1fr_390px]">
+        <div id="map" className="isolate grid min-h-[610px] overflow-hidden rounded-2xl border border-[#30443c] bg-[#172420] lg:grid-cols-[1fr_390px]">
           <LeafletSightingsMap sightings={mapped} selectedId={selected?.id ?? ''} emptyMessage={filtered.length && !mapped.length ? 'These reports have no complete coordinates to display on the map.' : emptyMessage} onSelect={setSelected}/>
           <aside className="border-l border-[#e2e5de] p-6 lg:p-8">
             {sharedSightingUnavailable && <p role="status" className="mb-4 rounded-xl bg-[#443919] p-3 text-sm text-[#aabbb2]">The sighting in this link is unavailable in the current results{selected ? '; showing the latest available report instead.' : '.'}</p>}

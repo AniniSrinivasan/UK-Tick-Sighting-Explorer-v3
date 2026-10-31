@@ -9,6 +9,8 @@ const ukBounds: [[number, number], [number, number]] = [[49.8, -8.7], [61, 2]]
 function resetUKView(map: LeafletMap) {
   map.stop()
   map.invalidateSize({ animate: false })
+  // getBoundsZoom clamps to the existing minimum; clear it before recalculating.
+  map.setMinZoom(0)
   map.setMinZoom(map.getBoundsZoom(ukBounds, false, map.getSize().multiplyBy(0).add([48, 48])))
   map.fitBounds(ukBounds, { padding: [24, 24], animate: false })
 }
@@ -86,6 +88,7 @@ export default function LeafletSightingsMap({
           if (active) {
             const wasAtDefaultZoom = map.getZoom() <= map.getMinZoom()
             map.invalidateSize({ animate: false, debounceMoveend: true })
+            map.setMinZoom(0)
             map.setMinZoom(map.getBoundsZoom(ukBounds, false, map.getSize().multiplyBy(0).add([48, 48])))
             if (wasAtDefaultZoom) resetUKView(map)
           }
@@ -151,6 +154,7 @@ export default function LeafletSightingsMap({
       marker.on('click', () => onSelect(sighting))
       marker.addTo(layer)
     })
+
 
     const signature = sightings.map((item) => item.id).sort().join('|')
     if (signature !== boundsSignature.current) {
