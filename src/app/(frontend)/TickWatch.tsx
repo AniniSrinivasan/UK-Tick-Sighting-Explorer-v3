@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
+import heroPets from '../../../img/dogcat3.jpeg'
+import woodlandPets from '../../../img/dogscats2.jpeg'
 import LeafletSightingsMap from './LeafletSightingsMap'
 import { AccessibilityProvider, AccessibilityPanel, GuideReadAloud } from './AccessibilityPreferences'
 import LocationMapPicker, { MapPinIcon, type PinnedLocation } from './LocationMapPicker'
@@ -100,28 +102,55 @@ function isPlaceOption(option: unknown): option is PlaceOption {
 }
 
 function SeasonalityChart({ title, scope, series, tone }: { title: string; scope: string; series: SeasonalSeries; tone: SeasonalTone }) {
+  const [requestedYear, setRequestedYear] = useState<number | null>(null)
+  const years = series.sightings.map(item => Number(item.observedAt.slice(0, 4))).filter(year => Number.isInteger(year) && year > 0)
+  const firstYear = years.length ? Math.min(...years) : null
+  const lastYear = years.length ? Math.max(...years) : null
+  const selectedYear = firstYear !== null && lastYear !== null
+    ? Math.max(firstYear, Math.min(requestedYear ?? lastYear, lastYear)) : null
+  const chartSightings = series.sightings.filter(item => Number(item.observedAt.slice(0, 4)) === selectedYear)
+  const yearLabel = tone === 'uk' ? 'UK' : tone === 'region' ? 'regional' : 'location'
+  const chartScope = selectedYear !== null ? `${scope} in ${selectedYear}` : scope
   const monthlyActivity = calendarMonths.map((label, index) => {
     const month = index + 1
     return {
       label,
-      count: series.sightings.filter((item) => Number(item.observedAt.slice(5, 7)) === month).length,
+      count: chartSightings.filter((item) => Number(item.observedAt.slice(5, 7)) === month).length,
     }
   })
   const maxMonthlyCount = Math.max(1, ...monthlyActivity.map(({ count }) => count))
+  const linePoints = monthlyActivity.map(({ count }, index) => ({
+    x: 16 + index * (328 / 11), y: 150 - count / maxMonthlyCount * 125,
+  }))
 
-  return <article className={`seasonality-card seasonality-card--${tone} rounded-[24px] p-6 text-white sm:p-8`}>
-    <p className="eyebrow">Seasonal tick reports · {scope}</p>
-    <h2 className="text-2xl font-semibold tracking-[-.04em]">{title}</h2>
-    <p className="mt-3 min-h-[3.25rem] text-sm leading-6 text-[#c8d7cd]">Reported sightings grouped by calendar month across all available years. All reported species are included; these are report counts, not estimated tick abundance.</p>
+  return <article className={`seasonality-card seasonality-card--${tone} rounded-2xl p-6 text-white sm:p-8`}>
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <p className="eyebrow !mb-0">{title}</p>
+      <div className={`ml-auto flex items-center gap-2 ${tone === 'uk' ? 'text-[#92d9b5]' : tone === 'region' ? 'text-[#8fc7f0]' : 'text-[#edc17d]'}`} role="group" aria-label={`${yearLabel} report year`}>
+        <button type="button" aria-label={`Previous ${yearLabel} report year`} disabled={series.state !== 'ready' || selectedYear === null || selectedYear === firstYear} onClick={() => selectedYear !== null && setRequestedYear(selectedYear - 1)} className="grid h-9 w-9 place-items-center rounded-lg border border-current/30 text-lg hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35">&lt;</button>
+        <span role="status" aria-live="polite" aria-atomic="true" className="min-w-10 text-center text-sm font-semibold tabular-nums">{selectedYear ?? '—'}</span>
+        <button type="button" aria-label={`Next ${yearLabel} report year`} disabled={series.state !== 'ready' || selectedYear === null || selectedYear === lastYear} onClick={() => selectedYear !== null && setRequestedYear(selectedYear + 1)} className="grid h-9 w-9 place-items-center rounded-lg border border-current/30 text-lg hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-35">&gt;</button>
+      </div>
+    </div>
+    <h2 className="text-2xl font-semibold tracking-[-.04em]">{scope}</h2>
+    <p className="mt-3 min-h-[3.25rem] text-sm leading-6 text-[#c8d7cd]">Reported sightings grouped by calendar month {selectedYear !== null ? `in ${selectedYear}` : 'for the selected year'}. All reported species are included; these are report counts, not estimated tick abundance.</p>
     {series.state === 'loading' && <p role="status" className="mt-8 rounded-xl bg-white/10 p-4 text-sm text-[#e2ece4]">Loading seasonal reports for {scope}…</p>}
     {series.state === 'error' && <p role="alert" className="mt-8 rounded-xl bg-white/10 p-4 text-sm text-[#e2ece4]">Seasonal reports for {scope} could not be loaded. Please try again later.</p>}
     {series.state === 'idle' && <p role="status" className="mt-8 rounded-xl bg-white/10 p-4 text-sm text-[#e2ece4]">Select a sighting to load seasonal reports.</p>}
     {series.state === 'ready' && <>
-      <div className="mt-5 flex justify-between text-xs text-[#c8d7cd]"><span>{maxMonthlyCount} {maxMonthlyCount === 1 ? 'report' : 'reports'}</span><span>0 reports</span></div>
-      <div className="bars seasonal-bars" role="img" aria-label={`${title} at ${scope}: ${monthlyActivity.map(({ label, count }) => `${label}: ${count}`).join(', ')}`}>
+      {tone === 'region' ? <svg className="mt-3 h-[180px] w-full overflow-visible text-[#8fc7f0]" viewBox="0 0 360 180" role="img" aria-label={`${title} at ${chartScope}: ${monthlyActivity.map(({ label, count }) => `${label}: ${count}`).join(', ')}`}>
+        <title>Monthly tick reports for {scope}</title>
+        {[25, 87.5, 150].map(y => <line key={y} x1="16" x2="344" y1={y} y2={y} stroke="currentColor" strokeOpacity="0.15"/>)}
+        <polyline points={linePoints.map(({ x, y }) => `${x},${y}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+        {linePoints.map(({ x, y }, index) => <g key={monthlyActivity[index].label}>
+          <circle cx={x} cy={y} r="3.5" fill="currentColor"><title>{monthlyActivity[index].label}: {monthlyActivity[index].count} reports</title></circle>
+          <text x={x} y={y - 10} textAnchor="middle" fill="currentColor" fontSize="10">{monthlyActivity[index].count}</text>
+          <text x={x} y="174" textAnchor="middle" fill="currentColor" fontSize="9">{monthlyActivity[index].label}</text>
+        </g>)}
+      </svg> : <div className="bars seasonal-bars" role="img" aria-label={`${title} at ${chartScope}: ${monthlyActivity.map(({ label, count }) => `${label}: ${count}`).join(', ')}`}>
         {monthlyActivity.map(({ label, count }) => <div key={label} title={`${label}: ${count} ${count === 1 ? 'report' : 'reports'}`}><b>{count}</b><span style={{ height: count ? `${Math.max(8, count / maxMonthlyCount * 100)}%` : '0%', minHeight: count ? 4 : 0 }}/><small>{label}</small></div>)}
-      </div>
-      {series.sightings.length === 0 && <p role="status" className="mt-4 rounded-xl bg-white/10 p-4 text-sm text-[#e2ece4]">No sightings have been reported for this scope yet.</p>}
+      </div>}
+      {chartSightings.length === 0 && <p role="status" className="mt-4 rounded-xl bg-white/10 p-4 text-sm text-[#e2ece4]">{selectedYear !== null ? `No ${yearLabel} sightings are available for ${selectedYear}.` : 'No sightings have been reported for this scope yet.'}</p>}
       {series.truncated && <p role="status" className="mt-4 rounded-xl bg-white/10 p-4 text-sm text-[#e2ece4]">This chart uses a bounded set of reports; some older sightings may not be included.</p>}
       {series.sourceAvailability && (!series.sourceAvailability.localAvailable || !series.sourceAvailability.externalAvailable) && <p role="status" className="mt-4 rounded-xl bg-white/10 p-4 text-sm text-[#e2ece4]">One data source was unavailable, so these seasonal counts may be incomplete.</p>}
     </>}
@@ -292,7 +321,8 @@ export default function TickWatch() {
   }), [sightings, region, kind, query, from, to, viewState])
   const mapped = filtered.filter(hasCoordinates)
   const unmappedCount = filtered.length - mapped.length
-  const selected = filtered.find((item) => item.id === sharedSightingId) ?? filtered.find((item) => item.id === selectedId) ?? filtered[0] ?? null
+  const defaultSighting = filtered.find((item) => item.locationName.trim().toLowerCase() === 'london') ?? filtered[0] ?? null
+  const selected = filtered.find((item) => item.id === sharedSightingId) ?? filtered.find((item) => item.id === selectedId) ?? defaultSighting
   const selectedLocationName = selected?.locationName ?? ''
   const selectedRegion = selected?.region ?? ''
   useEffect(() => {
@@ -372,11 +402,12 @@ export default function TickWatch() {
       }),
     }))
     .sort((left, right) => left.name.localeCompare(right.name))
-  const speciesGuidePageCount = Math.ceil(guideSpecies.length / 3)
+  const speciesPerPage = 4
+  const speciesGuidePageCount = Math.ceil(guideSpecies.length / speciesPerPage)
   const activeSpeciesGuidePage = Math.min(speciesGuidePage, Math.max(speciesGuidePageCount - 1, 0))
-  const visibleGuideSpecies = guideSpecies.slice(activeSpeciesGuidePage * 3, activeSpeciesGuidePage * 3 + 3)
-  const firstGuideSpecies = guideSpecies.length ? activeSpeciesGuidePage * 3 + 1 : 0
-  const lastGuideSpecies = Math.min(activeSpeciesGuidePage * 3 + 3, guideSpecies.length)
+  const visibleGuideSpecies = guideSpecies.slice(activeSpeciesGuidePage * speciesPerPage, activeSpeciesGuidePage * speciesPerPage + speciesPerPage)
+  const firstGuideSpecies = guideSpecies.length ? activeSpeciesGuidePage * speciesPerPage + 1 : 0
+  const lastGuideSpecies = Math.min(activeSpeciesGuidePage * speciesPerPage + speciesPerPage, guideSpecies.length)
   const selectedCount = selected ? filtered.filter((item) =>
     item.locationName === selected.locationName &&
     item.latitude === selected.latitude &&
@@ -431,7 +462,7 @@ export default function TickWatch() {
   }
 
   function fieldError(name: string) {
-    return fieldErrors[name] ? <small id={`${name}-error`} className="text-red-700">{fieldErrors[name]}</small> : null
+    return fieldErrors[name] ? <small id={`${name}-error`} className="text-red-300">{fieldErrors[name]}</small> : null
   }
   function fieldProps(name: string) {
     const paired = (name === 'latitude' || name === 'longitude') && coordinatePairError
@@ -439,21 +470,36 @@ export default function TickWatch() {
   }
 
   return (
-    <AccessibilityProvider><main className="tickwatch-app min-h-screen bg-[#f2f3ed] text-[#18251f]">
-      <header className="border-b border-[#d7dbd2] bg-[#f8f8f3]">
+    <AccessibilityProvider><main className="tickwatch-app min-h-screen bg-[#101917] text-[#f5f8f6]">
+      <header className="border-b border-[#30443c] bg-[#172420]">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-5 py-4 lg:px-10">
-          <div className="flex items-center gap-3"><span className="logo-mark" aria-hidden="true" /><div><p className="text-[0.6875rem] font-bold uppercase tracking-[.22em] text-[#57715d]">UK field network</p><p className="text-xl font-semibold tracking-[-.03em]">TickWatch</p></div></div>
+          <div className="flex items-center gap-3"><span className="logo-mark" aria-hidden="true" /><div><p className="text-[0.6875rem] font-bold uppercase tracking-[.22em] text-[#9db9aa]">UK field network</p><p className="text-xl font-semibold tracking-[-.03em]">TickWatch</p></div></div>
           <nav aria-label="Main navigation" className="site-nav order-3 flex w-full items-center justify-between gap-4 overflow-x-auto text-xs font-medium sm:gap-6 sm:text-sm lg:order-none lg:w-auto">
-            <a href="#map">Sightings Map</a><a href="#activity">Charts &amp; Trends</a><a href="#tick-information">Identify a Tick</a><a href="#learn">About Ticks</a>
+            <a href="#map">Sightings Map</a><a href="#activity">Charts &amp; Trends</a><a href="#learn">Field Guide</a><a href="#tick-information">About Ticks</a>
           </nav>
-          <div className="flex flex-wrap items-center gap-2"><AccessibilityPanel/><button onClick={() => { setReporting(true); setFormError(''); setFieldErrors({}); setStatus('') }} className="rounded-full bg-[#173e2b] px-3 py-2.5 text-xs font-semibold text-white hover:bg-[#28573e] sm:px-5 sm:text-sm">Report a sighting</button></div>
+          <div className="flex flex-wrap items-center gap-2"><AccessibilityPanel/><button onClick={() => { setReporting(true); setFormError(''); setFieldErrors({}); setStatus('') }} className="rounded-lg bg-[#92d9b5] px-3 py-2.5 text-xs font-semibold text-[#172420] hover:bg-[#b0e9cb] sm:px-5 sm:text-sm">Report a sighting</button></div>
         </div>
       </header>
 
       <section className="mx-auto max-w-[1500px] px-5 pb-8 pt-9 lg:px-10">
-        <div className="mb-7 grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div><p className="mb-3 text-xs font-bold uppercase tracking-[.2em] text-[#718376]">Sighting explorer</p><h1 className="max-w-4xl text-4xl font-semibold leading-[1.05] tracking-[-.055em] sm:text-6xl">See tick activity.<br/><span className="text-[#718376]">Know before you go.</span></h1></div>
-          <p className="max-w-md text-sm leading-6 text-[#5d6b62]">Explore community reports alongside Elanco educational task data. Inferred city-centre map positions are approximate.</p>
+        <div className="mb-10 grid items-center overflow-hidden border-b border-[#30443c] pb-8 lg:grid-cols-[1fr_1fr]">
+          <div className="relative z-10 flex flex-col justify-center py-5 sm:py-8">
+            <p className="mb-5 text-xs font-medium uppercase tracking-[.12em] text-[#9db9aa]">Small sightings. A shared responsibility.</p>
+            <h1 className="max-w-xl text-[2.5rem] font-semibold leading-[1.1] tracking-[-.045em] sm:text-[3.5rem]">Track ticks.<br/>Protect people,<br/><span className="text-[#92d9b5]">pets &amp; wildlife.</span></h1>
+            <p className="mt-5 max-w-md text-base leading-7 text-[#bccac3]">A UK-wide community for tick sightings and awareness. Help look after the places—and companions—you love.</p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <button onClick={() => { setReporting(true); setFormError(''); setFieldErrors({}); setStatus('') }} className="rounded-lg bg-[#92d9b5] px-6 py-3 text-sm font-bold text-[#172420] hover:bg-[#b0e9cb]">Report a tick <span aria-hidden="true">↗</span></button>
+              <a href="#map" className="rounded-lg border border-[#4b6658] px-6 py-3 text-sm font-semibold text-[#f5f8f6] hover:bg-[#243a31]">Explore the map <span aria-hidden="true">↓</span></a>
+            </div>
+          </div>
+          <div className="relative min-h-[280px] sm:min-h-[360px] lg:-ml-20 lg:min-h-[460px]">
+            <Image src={heroPets} alt="A golden retriever and a kitten together in a sunlit meadow" fill preload sizes="(min-width: 1024px) 50vw, 100vw" className="object-cover object-center"/>
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#101917_0%,transparent_25%,transparent_85%,#101917_100%)] lg:bg-[linear-gradient(to_right,#101917_0%,#10191799_12%,transparent_45%),linear-gradient(to_top,#101917_0%,transparent_20%)]"/>
+          </div>
+        </div>
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div><p className="mb-2 text-xs font-bold uppercase tracking-[.2em] text-[#9db9aa]">Sighting explorer</p><h2 className="text-2xl font-semibold tracking-tight">Know before you go.</h2></div>
+          <p className="max-w-lg text-sm leading-6 text-[#aabbb2]">Explore community reports alongside Elanco educational task data. Inferred city-centre map positions are approximate.</p>
         </div>
 
         <div className="mb-3 flex flex-wrap gap-2" aria-label="Map filters">
@@ -493,7 +539,7 @@ export default function TickWatch() {
               placeholder="Search a place or region"
               autoComplete="off"
             /></label>
-            {showPlaceSuggestions && <div id="place-suggestions" role="listbox" className="absolute left-0 right-0 top-full z-40 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-[#d7dbd2] bg-[#f8f8f3] p-2 shadow-xl">
+            {showPlaceSuggestions && <div id="place-suggestions" role="listbox" className="absolute left-0 right-0 top-full z-40 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-[#30443c] bg-[#172420] p-2 shadow-xl">
               {placeSuggestions.map((option, index) => <button
                 key={`${option.kind}:${option.value}`}
                 id={`place-suggestion-${index}`}
@@ -501,9 +547,9 @@ export default function TickWatch() {
                 role="option"
                 aria-selected={index === activePlaceSuggestion}
                 onClick={() => { setQuery(option.value); setPlaceSearchFocused(false) }}
-                className={`flex w-full items-center justify-between gap-4 rounded-xl px-3 py-2 text-left text-sm ${index === activePlaceSuggestion ? 'bg-[#e6ecdf]' : 'hover:bg-[#e6ecdf]'}`}
+                className={`flex w-full items-center justify-between gap-4 rounded-xl px-3 py-2 text-left text-sm ${index === activePlaceSuggestion ? 'bg-[#243a31]' : 'hover:bg-[#243a31]'}`}
               >
-                <span>{option.value}</span><span className="text-xs text-[#718076]">{option.kind}</span>
+                <span>{option.value}</span><span className="text-xs text-[#a5b9ae]">{option.kind}</span>
               </button>)}
             </div>}
           </div>
@@ -517,64 +563,77 @@ export default function TickWatch() {
               <span>{kind === 'All species' ? 'All species' : selectedSpeciesOption?.label ?? kind}</span>
               <span className="text-right tabular-nums">[{kind === 'All species' ? totalSpeciesSightings : selectedSpeciesOption?.count ?? 0}]</span>
             </summary>
-            <div className="absolute right-0 top-full z-30 mt-2 max-h-72 min-w-full overflow-y-auto rounded-2xl border border-[#d7dbd2] bg-[#f8f8f3] p-2 shadow-xl" aria-label="Species options">
+            <div className="absolute right-0 top-full z-30 mt-2 max-h-72 min-w-full overflow-y-auto rounded-2xl border border-[#30443c] bg-[#172420] p-2 shadow-xl" aria-label="Species options">
               <button type="button" aria-pressed={kind === 'All species'} onClick={() => {
                 setKind('All species')
                 if (speciesFilterRef.current) speciesFilterRef.current.open = false
-              }} className="flex w-full items-center justify-between gap-6 rounded-xl px-3 py-2 text-left text-sm font-semibold hover:bg-[#e6ecdf]">
+              }} className="flex w-full items-center justify-between gap-6 rounded-xl px-3 py-2 text-left text-sm font-semibold hover:bg-[#243a31]">
                 <span>All species</span><span className="tabular-nums">[{totalSpeciesSightings}]</span>
               </button>
               {speciesOptions.map((option) => <button key={option.value} type="button" aria-pressed={kind === option.value} onClick={() => {
                 setKind(option.value)
                 if (speciesFilterRef.current) speciesFilterRef.current.open = false
-              }} className="flex w-full items-center justify-between gap-6 rounded-xl px-3 py-2 text-left text-sm hover:bg-[#e6ecdf]">
+              }} className="flex w-full items-center justify-between gap-6 rounded-xl px-3 py-2 text-left text-sm hover:bg-[#243a31]">
                 <span>{option.label}</span><span className="tabular-nums">[{option.count}]</span>
               </button>)}
             </div>
           </details>
           {(query || from || to || region !== 'All regions' || kind !== 'All species') && <button className="clear-filter" onClick={() => { setQuery(''); setFrom(''); setTo(''); setRegion('All regions'); setKind('All species') }}>Clear filters</button>}
-          <span className="ml-auto self-center text-sm text-[#627067]">{viewState === 'ready' ? `${resultMeta.total}${resultMeta.truncated ? '+' : ''} matching reports` : viewState === 'loading' ? 'Loading reports…' : 'Reports unavailable'}</span>
+          <span className="ml-auto self-center text-sm text-[#aabbb2]">{viewState === 'ready' ? `${resultMeta.total}${resultMeta.truncated ? '+' : ''} matching reports` : viewState === 'loading' ? 'Loading reports…' : 'Reports unavailable'}</span>
         </div>
 
-        {viewState === 'error' && <p role="alert" className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm">{emptyMessage} <button className="underline" onClick={() => setReload((value) => value + 1)}>Retry loading</button></p>}
-        {availability && (!availability.localAvailable || !availability.externalAvailable) && <p role="status" className="mb-3 rounded-xl bg-amber-50 px-4 py-3 text-sm">Partial results: {availability.localAvailable ? 'Elanco field data is unavailable. Showing community reports only.' : 'Community reports are unavailable. Showing Elanco field data only.'}</p>}
-        {resultMeta.truncated && viewState === 'ready' && <p role="status" className="mb-3 rounded-xl bg-amber-50 p-3 text-sm">Results reached the source limit. Totals cover the retrieved subset; narrow your dates or location for more complete results.</p>}
-        {unmappedCount > 0 && <p role="status" className="mb-3 text-sm text-[#5d6b62]">{unmappedCount} {unmappedCount === 1 ? 'report has' : 'reports have'} no complete coordinates and cannot be shown on the map.</p>}
-        {status && <p className="mb-3 rounded-xl bg-[#e6ecdf] px-4 py-3 text-sm" role="status">{status}</p>}
-        <div id="map" className="isolate grid min-h-[610px] overflow-hidden rounded-[26px] border border-[#d7dbd2] bg-white shadow-[0_20px_60px_rgba(26,43,31,.08)] lg:grid-cols-[1fr_390px]">
+        {viewState === 'error' && <p role="alert" className="mb-3 rounded-xl bg-[#482822] px-4 py-3 text-sm">{emptyMessage} <button className="underline" onClick={() => setReload((value) => value + 1)}>Retry loading</button></p>}
+        {availability && (!availability.localAvailable || !availability.externalAvailable) && <p role="status" className="mb-3 rounded-xl bg-[#443919] px-4 py-3 text-sm">Partial results: {availability.localAvailable ? 'Elanco field data is unavailable. Showing community reports only.' : 'Community reports are unavailable. Showing Elanco field data only.'}</p>}
+        {resultMeta.truncated && viewState === 'ready' && <p role="status" className="mb-3 rounded-xl bg-[#443919] p-3 text-sm">Results reached the source limit. Totals cover the retrieved subset; narrow your dates or location for more complete results.</p>}
+        {unmappedCount > 0 && <p role="status" className="mb-3 text-sm text-[#aabbb2]">{unmappedCount} {unmappedCount === 1 ? 'report has' : 'reports have'} no complete coordinates and cannot be shown on the map.</p>}
+        {status && <p className="mb-3 rounded-xl bg-[#243a31] px-4 py-3 text-sm" role="status">{status}</p>}
+        <div id="map" className="isolate grid min-h-[610px] overflow-hidden rounded-2xl border border-[#30443c] bg-[#172420]  lg:grid-cols-[1fr_390px]">
           <LeafletSightingsMap sightings={mapped} selectedId={selected?.id ?? ''} emptyMessage={filtered.length && !mapped.length ? 'These reports have no complete coordinates to display on the map.' : emptyMessage} onSelect={setSelected}/>
           <aside className="border-l border-[#e2e5de] p-6 lg:p-8">
-            {sharedSightingUnavailable && <p role="status" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-[#5d6b62]">The sighting in this link is unavailable in the current results{selected ? '; showing the latest available report instead.' : '.'}</p>}
+            {sharedSightingUnavailable && <p role="status" className="mb-4 rounded-xl bg-[#443919] p-3 text-sm text-[#aabbb2]">The sighting in this link is unavailable in the current results{selected ? '; showing the latest available report instead.' : '.'}</p>}
             {selected ? <>
-            <div className="mb-8 flex items-start justify-between"><div><p className="mb-2 text-xs font-bold uppercase tracking-[.16em] text-[#718376]">Selected report</p><h2 className="text-2xl font-semibold tracking-[-.04em]">{selected?.locationName ?? 'UK'}</h2><p className="mt-1 text-sm text-[#718076]">{selected?.region ?? 'the UK'}</p></div></div>
-            <p className="mb-6 text-sm leading-6 text-[#5d6b62]"><strong className="text-[#18251f]">{selectedCount} {selectedCount === 1 ? 'sighting' : 'sightings'}</strong> reported at {selected?.locationName ?? 'UK'}. Showing the latest report.</p>
+            <div className="mb-8 flex items-start justify-between"><div><p className="mb-2 text-xs font-bold uppercase tracking-[.16em] text-[#9db9aa]">Selected report</p><h2 className="text-2xl font-semibold tracking-[-.04em]">{selected?.locationName ?? 'UK'}</h2><p className="mt-1 text-sm text-[#a5b9ae]">{selected?.region ?? 'the UK'}</p></div></div>
+            <p className="mb-6 text-sm leading-6 text-[#aabbb2]"><strong className="text-[#f5f8f6]">{selectedCount} {selectedCount === 1 ? 'sighting' : 'sightings'}</strong> reported at {selected?.locationName ?? 'UK'}. Showing the latest report.</p>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-[#e5e7e1] py-6 text-sm"><div><dt>Species</dt><dd>{selected.originalSpecies ?? speciesLabel[selected.species] ?? 'Unknown'}</dd></div><div><dt>Observed</dt><dd>{new Date(selected.observedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</dd></div><div><dt>Source</dt><dd className="capitalize">{selected.source}</dd></div><div><dt>Coordinates</dt><dd>{hasCoordinates(selected) ? `${selected.latitude.toFixed(2)}, ${selected.longitude.toFixed(2)}` : 'Not provided'}</dd></div></dl>
-            <p className="my-6 text-sm leading-6 text-[#526159]">{selected.notes ?? 'No additional field notes were provided.'}</p>
+            <p className="my-6 text-sm leading-6 text-[#bccac3]">{selected.notes ?? 'No additional field notes were provided.'}</p>
             {selected.photoUrl && selected.photoWidth && selected.photoHeight && <Image className="mb-6 h-auto max-h-80 w-full rounded-xl object-contain" src={selected.photoUrl} width={selected.photoWidth} height={selected.photoHeight} alt={`Photo submitted with the ${selected.locationName} tick sighting`} />}
             <div className="flex gap-2">{hasCoordinates(selected) && <a className="action" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/dir/?api=1&destination=${selected.latitude},${selected.longitude}`}>Get directions</a>}<button className="action" onClick={() => void copySightingLink()}>Copy link</button></div>
-            {shareMessage && <p role="status" className="mt-3 text-sm text-[#526159]">{shareMessage}</p>}
-            <div className="mt-8"><p className="mb-4 text-xs font-bold uppercase tracking-[.16em] text-[#718376]">Recent activity · {selected.locationName}</p>{timelineSightings.length ? <div className="timeline">{timelineSightings.map((item) => <button key={item.id} aria-label={`Select ${item.locationName} sighting from ${new Date(item.observedAt).toLocaleDateString('en-GB')}`} onClick={() => setSelected(item)}><span/><div><strong>{item.locationName}</strong><small>{new Date(item.observedAt).toLocaleDateString('en-GB')}</small></div></button>)}</div> : <p role="status" className="text-sm text-[#5d6b62]">No recent reports are available for this location.</p>}</div>
-            </> : <p role="status" className="text-sm text-[#5d6b62]">{emptyMessage}</p>}
+            {shareMessage && <p role="status" className="mt-3 text-sm text-[#bccac3]">{shareMessage}</p>}
+            <div className="mt-8"><p className="mb-4 text-xs font-bold uppercase tracking-[.16em] text-[#9db9aa]">Recent activity · {selected.locationName}</p>{timelineSightings.length ? <div className="timeline">{timelineSightings.map((item) => <button key={item.id} aria-label={`Select ${item.locationName} sighting from ${new Date(item.observedAt).toLocaleDateString('en-GB')}`} onClick={() => setSelected(item)}><span/><div><strong>{item.locationName}</strong><small>{new Date(item.observedAt).toLocaleDateString('en-GB')}</small></div></button>)}</div> : <p role="status" className="text-sm text-[#aabbb2]">No recent reports are available for this location.</p>}</div>
+            </> : <p role="status" className="text-sm text-[#aabbb2]">{emptyMessage}</p>}
           </aside>
         </div>
       </section>
 
       <section id="activity" className="mx-auto max-w-[1500px] px-5 py-12 lg:px-10" aria-label="Seasonal tick activity charts">
-        <div className="mb-7 max-w-3xl"><p className="eyebrow text-[#718376]">Educational insights</p><h2 className="section-title">Tick reports through the seasons.</h2><p className="mt-3 text-sm leading-6 text-[#5d6b62]">Compare reported sightings for this location, its region and the UK. Counts are grouped by month across available years.</p></div>
+        <div className="mb-7 max-w-3xl"><p className="eyebrow text-[#9db9aa]">Educational insights</p><h2 className="section-title">Tick reports through the seasons.</h2><p className="mt-3 text-sm leading-6 text-[#aabbb2]">Compare reported sightings for this location, its region and the UK. Use the year arrows on each chart to browse monthly reports for that year.</p></div>
         <div className="seasonality-grid">
-          <SeasonalityChart title="All UK reports" scope="United Kingdom" series={ukSeasonality} tone="uk"/>
-          <SeasonalityChart title="Selected region" scope={selectedRegion || 'select a sighting'} series={regionSeasonality} tone="region"/>
-          <SeasonalityChart title="Selected location" scope={selectedLocationName || 'select a sighting'} series={locationSeasonality} tone="location"/>
+          <SeasonalityChart title="UK-wide tick reports" scope="United Kingdom" series={ukSeasonality} tone="uk"/>
+          <SeasonalityChart title="Region-wide tick reports" scope={selectedRegion || 'select a sighting'} series={regionSeasonality} tone="region"/>
+          <SeasonalityChart title="Location-based tick reports" scope={selectedLocationName || 'select a sighting'} series={locationSeasonality} tone="location"/>
         </div>
-        <p className="mt-5 text-sm leading-6 text-[#5d6b62]">A month with no reports is not evidence that ticks are absent. Reporting coverage varies by place and year.</p>
+        <p className="mt-5 text-sm leading-6 text-[#aabbb2]">A month with no reports is not evidence that ticks are absent. Reporting coverage varies by place and year.</p>
       </section>
 
       <section id="learn" className="mx-auto max-w-[1500px] px-5 pb-12 lg:px-10">
-        <article data-educational-guide className="rounded-[24px] border border-[#d7dbd2] bg-[#f8f8f3] p-7 sm:p-10">
-          <p className="eyebrow text-[#718376]">Field guide</p>
-          <h2 className="section-title">Prevent bites and know what to do.</h2>
-          <GuideReadAloud/>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5d6b62]">Ticks can be found in woodland, long grass and gardens. A few simple checks can help reduce bites and make it easier to spot and remove a tick promptly.</p>
+        <article data-educational-guide className="rounded-2xl border border-[#30443c] bg-[#172420] p-7 sm:p-10">
+          <div className="grid items-center gap-6 overflow-hidden lg:grid-cols-2 lg:gap-0">
+            <div className="relative z-10 lg:pr-8">
+              <p className="eyebrow text-[#9db9aa]">Field guide</p>
+              <h2 className="section-title">Prevent bites and know what to do.</h2>
+              <p className="mt-4 text-sm leading-6 text-[#aabbb2]">Ticks can be found in woodland, long grass and gardens. A few simple checks can help reduce bites and make it easier to spot and remove a tick promptly.</p>
+              <div className="mt-6">
+                <p className="eyebrow text-[#92d9b5]">For every outdoor companion</p>
+                <h3 className="text-2xl font-semibold tracking-tight">A little check after every adventure.</h3>
+                <p className="mt-3 text-sm leading-6 text-[#bccac3]">Check yourself and your pets after time outdoors. Small habits help make your next walk a safer one.</p>
+              </div>
+              <GuideReadAloud/>
+            </div>
+            <div className="relative lg:-ml-10">
+              <Image src={woodlandPets} alt="Two dogs and two cats together on a mossy log in woodland" sizes="(min-width: 1024px) 50vw, 100vw" className="h-auto w-full object-cover"/>
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,#172420_0%,transparent_25%,transparent_85%,#172420_100%)] lg:bg-[linear-gradient(to_left,transparent_55%,#172420_100%),linear-gradient(to_top,#172420_0%,transparent_18%)]"/>
+            </div>
+          </div>
           <div className="field-guide-grid">
             <section><p className="field-guide-number">01 · BEFORE YOU GO</p><h3>Reduce exposed skin</h3><ul><li>Wear long sleeves and trousers; tuck trousers into socks when walking through grass or woodland.</li><li>Light-coloured clothing can make ticks easier to see.</li><li>Stay on clear paths where possible and use an insect repellent according to its label.</li></ul></section>
             <section><p className="field-guide-number">02 · AFTER TIME OUTDOORS</p><h3>Check yourself, children and pets</h3><ul><li>Check clothing and skin promptly, including behind knees, underarms, waistbands, scalp and skin folds.</li><li>Check children and pets too; ticks can be tiny and bites may not hurt.</li><li>Remove any attached tick as soon as possible.</li></ul></section>
@@ -586,7 +645,7 @@ export default function TickWatch() {
       </section>
 
       <section id="tick-information" className="mx-auto max-w-[1500px] px-5 pb-16 lg:px-10" aria-labelledby="species-guide">
-        <div className="mb-7 max-w-2xl"><p className="eyebrow text-[#718376]">Identification guide</p><h2 id="species-guide" className="section-title">Know what to look for.</h2><p className="mt-3 text-sm leading-6 text-[#5d6b62]">Browse the tick types listed in sightings. Ticks can be difficult to identify without magnification; these cues are a starting point, not a confirmed identification.</p></div>
+        <div className="mb-7 max-w-2xl"><p className="eyebrow text-[#9db9aa]">Identification guide</p><h2 id="species-guide" className="section-title">Know what to look for.</h2><p className="mt-3 text-sm leading-6 text-[#aabbb2]">Browse the tick types listed in sightings. Ticks can be difficult to identify without magnification; these cues are a starting point, not a confirmed identification.</p></div>
         <div className="species-gallery-controls">
           <p role="status" aria-live="polite">Showing {firstGuideSpecies}–{lastGuideSpecies} of {guideSpecies.length} tick types</p>
           <div className="species-gallery-nav">
@@ -594,7 +653,7 @@ export default function TickWatch() {
             <button type="button" aria-label="Next species" aria-controls="species-gallery" disabled={activeSpeciesGuidePage >= speciesGuidePageCount - 1} onClick={() => setSpeciesGuidePage(activeSpeciesGuidePage + 1)}>→</button>
           </div>
         </div>
-        <div id="species-gallery" className="species-grid" aria-live="polite">
+        <div id="species-gallery" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-live="polite">
           {visibleGuideSpecies.map((species) => <article className="species-card" key={species.name}>
             <div className={`tick-illustration ${species.illustration}`} aria-hidden="true"><i/><span/><b/></div>
             <p className="species-kicker">{species.scientificName}</p>
@@ -607,9 +666,9 @@ export default function TickWatch() {
       </section>
 
       {reporting && <div className="modal-backdrop" role="dialog" aria-modal={!pickingLocation} aria-hidden={pickingLocation || undefined} inert={pickingLocation} aria-labelledby="report-title"><form onSubmit={(event) => { event.preventDefault(); void submit(new FormData(event.currentTarget)) }} className="modal" aria-busy={pending}>
-        <div className="flex items-start justify-between"><div><p className="eyebrow text-[#718376]">Community report</p><h2 id="report-title" className="text-3xl font-semibold tracking-[-.04em]">Report a sighting</h2></div><button type="button" disabled={pending} onClick={() => setReporting(false)} className="close" aria-label="Close">×</button></div>
-        <p className="mt-4 text-sm text-[#5d6b62]">Fields marked * are required.</p>
-        {formError && <p role="alert" className="my-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{formError}</p>}
+        <div className="flex items-start justify-between"><div><p className="eyebrow text-[#9db9aa]">Community report</p><h2 id="report-title" className="text-3xl font-semibold tracking-[-.04em]">Report a sighting</h2></div><button type="button" disabled={pending} onClick={() => setReporting(false)} className="close" aria-label="Close">×</button></div>
+        <p className="mt-4 text-sm text-[#aabbb2]">Fields marked * are required.</p>
+        {formError && <p role="alert" className="my-4 rounded-lg bg-[#482822] p-3 text-sm text-red-200">{formError}</p>}
         {pending && <p role="status" className="my-3 text-sm">Saving your report…</p>}
         <fieldset disabled={pending} className="form-grid">
           <label className="col-span-2"><span>Location name <span aria-hidden="true">*</span></span><input required minLength={2} maxLength={120} name="locationName" {...fieldProps('locationName')} placeholder="e.g. Richmond Park"/>{fieldError('locationName')}</label>
@@ -617,27 +676,27 @@ export default function TickWatch() {
           <label><span>Region <span aria-hidden="true">*</span></span><select required name="region" {...fieldProps('region')}><option value="">Choose region</option>{regions.slice(1).map((item) => <option key={item}>{item}</option>)}</select>{fieldError('region')}</label>
           <label><span>Species <span aria-hidden="true">*</span></span><select required name="species" {...fieldProps('species')}><option value="unknown">Not sure</option><option value="sheep">Sheep tick</option><option value="hedgehog">Hedgehog tick</option><option value="ornate-cow">Ornate cow tick</option></select>{fieldError('species')}</label>
           <label><span>Activity <span aria-hidden="true">*</span></span><select required name="severity" {...fieldProps('severity')}><option value="low">Low — one tick</option><option value="moderate">Moderate — several</option><option value="high">High — cluster</option></select>{fieldError('severity')}</label>
-          <div className="col-span-2 text-sm text-[#5d6b62]"><strong className="block font-semibold text-[#18251f]">Coordinates (optional)</strong><span>You can submit a sighting without coordinates. Your report will still contribute to regional statistics. Providing both latitude and longitude allows the sighting to be displayed at its reported location on the map.</span></div>
+          <div className="col-span-2 text-sm text-[#aabbb2]"><strong className="block font-semibold text-[#f5f8f6]">Coordinates (optional)</strong><span>You can submit a sighting without coordinates. Your report will still contribute to regional statistics. Providing both latitude and longitude allows the sighting to be displayed at its reported location on the map.</span></div>
           <label><span>Latitude</span><input min={-90} max={90} value={latitude} onChange={event => editCoordinate('latitude', event.target.value)} name="latitude" {...fieldProps('latitude')} type="number" step="any" placeholder="51.507"/>{fieldError('latitude')}</label>
           <label><span>Longitude</span><input min={-180} max={180} value={longitude} onChange={event => editCoordinate('longitude', event.target.value)} name="longitude" {...fieldProps('longitude')} type="number" step="any" placeholder="-0.127"/>{fieldError('longitude')}</label>
           <div className="col-span-2">
-            {coordinatePairError && <p id="coordinate-pair-error" className="mb-3 text-sm text-red-700" role="status">{coordinatePairError}</p>}
-            <button ref={pinButtonRef} type="button" onClick={() => { setPinMessage(''); setPickingLocation(true) }} aria-haspopup="dialog" className="inline-flex items-center gap-2 rounded-full border border-[#a8b5aa] bg-[#e6ecdf] px-4 py-2.5 text-sm font-semibold text-[#173e2b] hover:bg-[#dce8df] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173e2b]">
+            {coordinatePairError && <p id="coordinate-pair-error" className="mb-3 text-sm text-red-300" role="status">{coordinatePairError}</p>}
+            <button ref={pinButtonRef} type="button" onClick={() => { setPinMessage(''); setPickingLocation(true) }} aria-haspopup="dialog" className="inline-flex items-center gap-2 rounded-lg border border-[#a8b5aa] bg-[#243a31] px-4 py-2.5 text-sm font-semibold text-[#92d9b5] hover:bg-[#30443c] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#92d9b5]">
               <MapPinIcon/>{validLocation ? 'Edit pinned location' : 'Pin location on map'}
             </button>
-            {pinMessage && <p role="status" className="mt-3 text-sm text-[#173e2b]">{pinMessage}</p>}
+            {pinMessage && <p role="status" className="mt-3 text-sm text-[#92d9b5]">{pinMessage}</p>}
           </div>
           <label className="col-span-2">Field notes<textarea maxLength={1000} name="notes" {...fieldProps('notes')} rows={3} placeholder="Where was it found? Was it attached?"/>{fieldError('notes')}</label>
           <label className="col-span-2"><span>Photo <span className="optional">optional · JPEG, PNG or WebP, up to 5 MB</span></span><input name="photo" type="file" accept="image/jpeg,image/png,image/webp" aria-invalid={!!fieldErrors.photo} aria-describedby={fieldErrors.photo ? 'photo-error photo-privacy' : 'photo-privacy'}/>{fieldError('photo')}</label>
-          <p id="photo-privacy" className="col-span-2 text-sm text-[#5d6b62]">Photos are shown with the report and may be publicly accessible. Avoid including faces, personal details or identifying information.</p>
+          <p id="photo-privacy" className="col-span-2 text-sm text-[#aabbb2]">Photos are shown with the report and may be publicly accessible. Avoid including faces, personal details or identifying information.</p>
         </fieldset>
         <button disabled={pending} className="submit disabled:opacity-60" type="submit">{pending ? 'Saving report…' : 'Submit for review'}</button>
       </form></div>}
       {reporting && pickingLocation && <LocationMapPicker initialLocation={validLocation} onCancel={closeLocationPicker} onConfirm={confirmLocation}/>}
-      <footer className="site-footer border-t border-[#d7dbd2] bg-[#f8f8f3]">
+      <footer className="site-footer border-t border-[#30443c] bg-[#172420]">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-1 px-5 py-6 text-sm sm:flex-row sm:items-center sm:justify-between lg:px-10">
-          <a className="font-semibold text-[#18251f] underline decoration-[#a8b5aa] underline-offset-4 hover:text-[#173e2b]" href="https://www.linkedin.com/in/aninisrinivasan/" target="_blank" rel="noreferrer">Anini Pandiyan Sathya <span className="sr-only">(opens LinkedIn in a new tab)</span></a>
-          <p className="text-[#5d6b62]">Elanco Placement Program: Technical Task – Full Stack</p>
+          <a className="font-semibold text-[#f5f8f6] underline decoration-[#a8b5aa] underline-offset-4 hover:text-[#92d9b5]" href="https://www.linkedin.com/in/aninisrinivasan/" target="_blank" rel="noreferrer">Anini Pandiyan Sathya <span className="sr-only">(opens LinkedIn in a new tab)</span></a>
+          <p className="text-[#aabbb2]">Elanco Placement Program: Technical Task – Full Stack</p>
         </div>
       </footer>
     </main></AccessibilityProvider>

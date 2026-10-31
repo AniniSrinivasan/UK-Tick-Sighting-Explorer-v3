@@ -5,7 +5,7 @@ const speechStub = () => {
   class Utterance { constructor(text) { this.text = text } }
   const synth = {
     paused: false,
-    getVoices: () => [{ lang: 'en-GB', localService: true, name: 'Test UK' }],
+    getVoices: () => [{ lang: 'en-GB', localService: true, name: 'Daniel' }, { lang: 'en-GB', localService: false, name: 'Google UK English Female' }],
     speak: utterance => { state.texts.push(utterance.text); state.last = state.current = utterance; utterance.onstart?.({}) },
     pause: () => { synth.paused = true; state.pauses++ },
     resume: () => { synth.paused = false; state.resumes++ },
@@ -30,7 +30,7 @@ const routeFixtures = async page => {
     await page.goto('http://localhost:3000/', { waitUntil: 'domcontentloaded' })
     await page.locator('html[data-text-size=standard]').waitFor()
     await page.locator('.report-marker').waitFor()
-    const paragraph = page.locator('[data-educational-guide] > p').nth(1)
+    const paragraph = page.locator('[data-educational-guide] p').filter({ hasText: /^Ticks can be found/ })
     const fontSize = () => paragraph.evaluate(node => parseFloat(getComputedStyle(node).fontSize))
     const original = await fontSize()
     const trigger = page.getByRole('button', { name: 'Accessibility', exact: true })
@@ -51,6 +51,8 @@ const routeFixtures = async page => {
     await dialog.getByRole('button', { name: 'Read guide aloud', exact: true }).click()
     await dialog.getByRole('button', { name: 'Pause reading' }).waitFor()
     assert.match(await page.evaluate(() => testSpeech.texts[0]), /Prevent bites and know what to do/)
+    assert.equal(await page.evaluate(() => testSpeech.current.voice.name), 'Google UK English Female', 'UK female voice is preferred over the first local male voice')
+    assert.equal(await page.evaluate(() => testSpeech.current.rate), 0.95)
     await dialog.getByRole('button', { name: 'Pause reading' }).click()
     assert.equal(await page.evaluate(() => speechSynthesis.paused), true)
     await dialog.getByRole('button', { name: 'Resume reading' }).click()
@@ -65,7 +67,7 @@ const routeFixtures = async page => {
     await dialog.getByText('Finished reading the educational guide.').waitFor()
     assert.match(await page.evaluate(() => testSpeech.texts.join(' ')), /Do not rely on a tick/)
     await page.keyboard.press('Escape')
-    await trigger.evaluate(button => { if (button !== document.activeElement) throw Error('Focus did not return after Escape') })
+    await page.waitForFunction(button => button === document.activeElement, await trigger.elementHandle())
     await page.reload({ waitUntil: 'domcontentloaded' })
     await page.locator('html[data-text-size=largest][data-contrast=high]').waitFor()
     assert.equal(await page.evaluate(() => testSpeech.texts.length), 0, 'Reading must never start automatically')

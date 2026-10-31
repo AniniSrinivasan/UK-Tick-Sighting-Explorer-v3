@@ -89,7 +89,7 @@ export default function LocationMapPicker({ initialLocation, onConfirm, onCancel
       markerRef.current = leaflet.marker([location.latitude, location.longitude], {
         icon: leaflet.divIcon({
           className: 'location-picker-pin',
-          html: '<svg width="36" height="44" viewBox="0 0 36 44" aria-hidden="true"><path d="M18 42S2 29 2 18a16 16 0 1 1 32 0c0 11-16 24-16 24Z" fill="#173e2b" stroke="white" stroke-width="2"/><circle cx="18" cy="18" r="5" fill="white"/></svg>',
+          html: '<svg width="36" height="44" viewBox="0 0 36 44" aria-hidden="true"><path d="M18 42S2 29 2 18a16 16 0 1 1 32 0c0 11-16 24-16 24Z" fill="#92d9b5" stroke="white" stroke-width="2"/><circle cx="18" cy="18" r="5" fill="white"/></svg>',
           iconSize: [36, 44], iconAnchor: [18, 42],
         }),
         keyboard: false,
@@ -105,13 +105,13 @@ export default function LocationMapPicker({ initialLocation, onConfirm, onCancel
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
   }}
-    className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[760px] overflow-y-auto rounded-[24px] bg-[#f8f8f3] p-5 text-[#18251f] shadow-2xl backdrop:bg-[#0f1d159e] backdrop:backdrop-blur-sm sm:p-7">
+    className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-[760px] overflow-y-auto rounded-2xl bg-[#172420] p-5 text-[#f5f8f6] shadow-2xl backdrop:bg-[#0f1d159e] backdrop:backdrop-blur-sm sm:p-7">
     <div className="flex items-start justify-between gap-4">
-      <div><p className="mb-2 text-xs font-bold uppercase tracking-[.16em] text-[#718376]">Sighting location</p><h2 id="location-picker-title" className="text-2xl font-semibold tracking-[-.04em]">Pin location on map</h2></div>
-      <button type="button" onClick={onCancel} className="close shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173e2b]" aria-label="Close location picker">×</button>
+      <div><p className="mb-2 text-xs font-bold uppercase tracking-[.16em] text-[#9db9aa]">Sighting location</p><h2 id="location-picker-title" className="text-2xl font-semibold tracking-[-.04em]">Pin location on map</h2></div>
+      <button type="button" onClick={onCancel} className="close shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#92d9b5]" aria-label="Close location picker">×</button>
     </div>
-    <p id="location-picker-instructions" className="my-4 text-sm text-[#526159]">Click anywhere on the map to mark where you spotted the tick.</p>
-    <div className="relative isolate h-[45dvh] min-h-[220px] max-h-[420px] overflow-hidden rounded-2xl border border-[#d1d7ce] bg-[#dfe9dc]">
+    <p id="location-picker-instructions" className="my-4 text-sm text-[#bccac3]">Click anywhere on the map to mark where you spotted the tick.</p>
+    <div className="relative isolate h-[45dvh] min-h-[220px] max-h-[420px] overflow-hidden rounded-2xl border border-[#3b5146] bg-[#dfe9dc]">
       <div ref={containerRef} className="absolute inset-0" tabIndex={0} role="region" aria-label="Location selection map" aria-describedby="location-picker-keyboard" onKeyDown={event => {
         if (event.key === 'Enter' && mapRef.current && event.target === event.currentTarget) {
           event.preventDefault()
@@ -119,16 +119,16 @@ export default function LocationMapPicker({ initialLocation, onConfirm, onCancel
           setLocation({ latitude: center.lat, longitude: center.lng })
         }
       }}/>
-      {!ready && <p role={error ? 'alert' : 'status'} className="pointer-events-none absolute inset-x-4 top-4 z-[500] rounded-xl bg-white/95 p-3 text-sm">{error ? 'The map could not load. Close this picker to enter coordinates manually.' : 'Loading location map…'}</p>}
+      {!ready && <p role={error ? 'alert' : 'status'} className="pointer-events-none absolute inset-x-4 top-4 z-[500] rounded-xl bg-[#172420]/95 p-3 text-sm">{error ? 'The map could not load. Close this picker to enter coordinates manually.' : 'Loading location map…'}</p>}
     </div>
-    <p id="location-picker-keyboard" className="mt-3 text-xs leading-5 text-[#5d6b62]">Keyboard: use arrow keys to pan, + or − to zoom, and Enter to place a pin at the centre. You can also enter coordinates manually in the reporting form.</p>
-    <div role="status" aria-live="polite" aria-atomic="true" className="my-4 rounded-xl bg-[#e6ecdf] p-3 text-sm">
+    <p id="location-picker-keyboard" className="mt-3 text-xs leading-5 text-[#aabbb2]">Keyboard: use arrow keys to pan, + or − to zoom, and Enter to place a pin at the centre. You can also enter coordinates manually in the reporting form.</p>
+    <div role="status" aria-live="polite" aria-atomic="true" className="my-4 rounded-xl bg-[#243a31] p-3 text-sm">
       {location ? <dl className="flex flex-wrap gap-x-6 gap-y-1"><div><dt className="inline font-semibold">Latitude: </dt><dd className="inline">{location.latitude.toFixed(6)}</dd></div><div><dt className="inline font-semibold">Longitude: </dt><dd className="inline">{location.longitude.toFixed(6)}</dd></div></dl> : 'No pin selected.'}
     </div>
     <div className="flex flex-wrap justify-end gap-2">
       <button type="button" className="action" onClick={onCancel}>Cancel</button>
       <button type="button" className="action disabled:opacity-50" disabled={!location} onClick={() => setLocation(null)}>Clear pin</button>
-      <button type="button" className="rounded-full bg-[#173e2b] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#28573e] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173e2b]" disabled={!ready || (!location && !initialLocation)} onClick={() => onConfirm(location)}>Confirm location</button>
+      <button type="button" className="rounded-lg bg-[#92d9b5] px-5 py-2.5 text-sm font-semibold text-[#172420] hover:bg-[#b0e9cb] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#92d9b5]" disabled={!ready || (!location && !initialLocation)} onClick={() => onConfirm(location)}>Confirm location</button>
     </div>
   </dialog>, document.body)
 }

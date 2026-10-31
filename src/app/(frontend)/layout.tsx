@@ -59,7 +59,7 @@ export default function RootLayout({
         {renderHeadCustomCode(customScripts?.headStart, "head-start")}
         {renderHeadCustomCode(customScripts?.headEnd, "head-end")}
       </head>
-      <body className="min-h-screen bg-white text-zinc-950 antialiased">
+      <body className="min-h-screen bg-[#101917] text-[#f5f8f6] antialiased">
         <BodyCustomCode html={customScripts?.bodyStart} />
         {addBypassLinks && (
           <a className="figma-bypass-link" href="#root">
