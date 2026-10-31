@@ -1,3 +1,4 @@
+// check data normalization, filtering, caching and source limits
 const assert = require('node:assert/strict')
 const createLoader = require('./load-ts.cjs')
 const domain = createLoader()('src/lib/sightings-domain.ts')

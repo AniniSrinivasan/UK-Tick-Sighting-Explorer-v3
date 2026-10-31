@@ -2,6 +2,7 @@ import type { Access, CollectionConfig } from 'payload'
 
 const isPayloadAdmin: Access = ({ req }) => req.user?.collection === 'admins'
 
+// configure CMS administrator accounts and access
 export const Admins: CollectionConfig = {
   slug: 'admins',
   access: {

@@ -1,3 +1,4 @@
+// check the main page with mocked sightings and API failures
 // Run with Playwright available: NODE_PATH=/path/to/node_modules node tests/p0-browser.cjs
 // Uses mocked API responses to make failure/empty/pending scenarios deterministic.
 const { chromium } = require('playwright')

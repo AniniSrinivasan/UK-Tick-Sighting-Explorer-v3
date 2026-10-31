@@ -3,6 +3,7 @@ import { SOURCE_LIMIT } from './sightings-domain'
 import mysql, { type Pool, type RowDataPacket } from 'mysql2/promise'
 
 const database = process.env.MYSQL_DATABASE || 'dataWatch'
+// database connection settings
 const connectionOptions = {
   host: process.env.MYSQL_HOST || '127.0.0.1',
   port: Number(process.env.MYSQL_PORT || 3306),
@@ -14,6 +15,7 @@ const connectionOptions = {
 let pool: Pool | undefined
 let initialized: Promise<Pool> | undefined
 
+// starter sightings for the demo
 const sampleSightings = [
   ['sample-richmond', '2025-05-22 12:00:00', 'Richmond Park', 'London', 51.44, -0.28, 'sheep', 'high', 'Found after walking through long grass near the deer enclosure.'],
   ['sample-new-forest', '2025-05-18 12:00:00', 'New Forest', 'South East', 50.87, -1.58, 'hedgehog', 'moderate', 'Single adult tick reported on a dog.'],
@@ -21,6 +23,7 @@ const sampleSightings = [
   ['sample-brecon', '2025-04-29 12:00:00', 'Brecon Beacons', 'Wales', 51.88, -3.44, 'unknown', 'low', 'Reported beside a popular walking route.'],
 ]
 
+// create the database and prepare the sightings table
 async function initialize(): Promise<Pool> {
   const connection = await mysql.createConnection(connectionOptions)
   await connection.query(`CREATE DATABASE IF NOT EXISTS \`${database.replaceAll('`', '')}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`)
@@ -93,6 +96,7 @@ async function initialize(): Promise<Pool> {
   return pool
 }
 
+// reuse the database connection and retry failed setup
 export function getDatabase(): Promise<Pool> {
   initialized ??= initialize().catch(async error => {
     await pool?.end().catch(() => undefined)
@@ -121,6 +125,7 @@ export type DatabaseSighting = {
   reportCount?: number
 }
 
+// load community sightings using search filters
 export async function listSightings(filters: {
   from?: string | null
   to?: string | null
@@ -149,6 +154,7 @@ export async function listSightings(filters: {
   return rows as DatabaseSighting[]
 }
 
+// save a community report with pending status
 export async function insertSighting(input: Omit<DatabaseSighting, 'id' | 'source'>): Promise<DatabaseSighting> {
   const db = await getDatabase()
   const id = randomUUID()

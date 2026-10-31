@@ -1,3 +1,4 @@
+// check the initial location and shared sighting selection
 const { chromium } = require('playwright')
 const assert = require('node:assert/strict')
 ;(async () => {

@@ -1,5 +1,6 @@
 import mysql from 'mysql2/promise'
 
+// read database settings from the environment
 const database = process.env.MYSQL_DATABASE || 'dataWatch'
 const options = {
   host: process.env.MYSQL_HOST || '127.0.0.1',
@@ -7,6 +8,7 @@ const options = {
   user: process.env.MYSQL_USER || 'root',
   password: process.env.MYSQL_PASSWORD || '',
 }
+// connect to MySQL and create the database and sightings table
 const connection = await mysql.createConnection(options)
 await connection.query(`CREATE DATABASE IF NOT EXISTS \`${database.replaceAll('`', '')}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`)
 await connection.query(`USE \`${database.replaceAll('`', '')}\``)
@@ -35,17 +37,20 @@ await connection.query(`
     .map((name) => `MODIFY COLUMN ${name} DECIMAL(9,6) NULL`)
   if (coordinateChanges.length) await connection.query(`ALTER TABLE sightings ${coordinateChanges.join(', ')}`)
 
+// prepare starter sightings for the demo
 const samples = [
   ['sample-richmond','2025-05-22 12:00:00','Richmond Park','London',51.44,-0.28,'sheep','high','Found after walking through long grass near the deer enclosure.'],
   ['sample-new-forest','2025-05-18 12:00:00','New Forest','South East',50.87,-1.58,'hedgehog','moderate','Single adult tick reported on a dog.'],
   ['sample-loch-lomond','2025-05-14 12:00:00','Loch Lomond','Scotland',56.1,-4.63,'sheep','high','Multiple ticks seen along a woodland trail.'],
   ['sample-brecon','2025-04-29 12:00:00','Brecon Beacons','Wales',51.88,-3.44,'unknown','low','Reported beside a popular walking route.'],
 ]
+// add starter sightings without replacing existing records
 for (const row of samples) {
   await connection.execute(`INSERT IGNORE INTO sightings
     (id, observed_at, location_name, region, latitude, longitude, species, severity, notes, source, status)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'community', 'verified')`, row)
 }
+// show the number of stored sightings and close the connection
 const [[result]] = await connection.query('SELECT COUNT(*) AS count FROM sightings')
 console.log(`MySQL ready: ${database}.sightings (${result.count} rows)`)
 await connection.end()

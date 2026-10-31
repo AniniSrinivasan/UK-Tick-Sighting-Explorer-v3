@@ -1,3 +1,4 @@
+// check display preferences, keyboard access and read-aloud controls
 const { chromium } = require('playwright')
 const assert = require('node:assert/strict')
 const speechStub = () => {

@@ -8,6 +8,7 @@ type CollectionSlug = keyof Config["collections"]
  * Get the Payload instance configured for this project.
  * Use this in server components and route handlers.
  */
+// get the configured CMS client
 export async function getPayloadClient() {
   const payloadConfig = await config
   return getPayload({ config: payloadConfig })
@@ -34,6 +35,7 @@ export async function getPayloadClient() {
  * }
  * ```
  */
+// find a CMS document using its slug
 export async function findBySlug<T extends CollectionSlug>(
   collection: T,
   slug: string,
@@ -81,6 +83,7 @@ export async function findBySlug<T extends CollectionSlug>(
  * }
  * ```
  */
+// find a CMS document using a selected field
 export async function findByField<T extends CollectionSlug>(
   collection: T,
   field: string,

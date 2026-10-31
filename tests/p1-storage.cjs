@@ -1,3 +1,4 @@
+// check database query filters using a mock connection
 const assert = require('node:assert/strict')
 const createLoader = require('./load-ts.cjs')
 const queries = []

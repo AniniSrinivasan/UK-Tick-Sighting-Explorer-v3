@@ -1,3 +1,4 @@
+// check species filters, map markers and reporting charts
 const { chromium } = require('playwright')
 const assert = require('node:assert/strict')
 ;(async () => {

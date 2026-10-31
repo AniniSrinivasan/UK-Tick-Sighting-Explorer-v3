@@ -1,3 +1,4 @@
+// check live Next.js responses and the optional NestJS proxy
 // Read-only integration checks. Start the compatibility proxy with API_PORT=4001 first.
 const assert = require('node:assert/strict')
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000'

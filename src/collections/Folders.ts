@@ -1,5 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
+// organize CMS media into folders
 export const Folders: CollectionConfig = {
   slug: 'folders',
   admin: {

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import type { DatabaseSighting } from './mysql'
 
 export type Sighting = DatabaseSighting & { originalSpecies?: string }
+// maximum records to load from each data source
 export const SOURCE_LIMIT = 10000
 export const regions = ['Scotland', 'North East', 'North West', 'Yorkshire', 'Midlands', 'Wales', 'East of England', 'London', 'South East', 'South West', 'Northern Ireland']
 export const species = ['sheep', 'hedgehog', 'ornate-cow', 'unknown']
@@ -31,10 +32,12 @@ export type Filters = { from: string; to: string; region: string; species: strin
 export class QueryError extends Error {
   constructor(public errors: Record<string, string>) { super('Please check the search filters.') }
 }
+// check that a date is a valid calendar date
 export function validDate(value: string) {
   const date = new Date(value)
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= '1000-01-01' && Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
 }
+// validate search filters from the request URL
 export function parseFilters(params: URLSearchParams): Filters {
   const errors: Record<string, string> = {}
   const from = params.get('from') || '', to = params.get('to') || ''
@@ -58,6 +61,7 @@ const decimal = (value: unknown, min: number, max: number) => {
 }
 const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 export type Diagnostics = { received: number; discarded: number; duplicates: number; conflictingIds: number; inferredCoordinates: number; missingCoordinates: number; unknownSpecies: number; unknownSeverity: number; unknownRegion: number; assumedUtc: number }
+// process source data into a shared sighting format
 export function normalizeRows(rows: unknown[], origin: 'local' | 'external') {
   const diagnostics: Diagnostics = { received: rows.length, discarded: 0, duplicates: 0, conflictingIds: 0, inferredCoordinates: 0, missingCoordinates: 0, unknownSpecies: 0, unknownSeverity: 0, unknownRegion: 0, assumedUtc: 0 }
   const records = new Map<string, Sighting>()
@@ -117,6 +121,7 @@ export function normalizeRows(rows: unknown[], origin: 'local' | 'external') {
   }
   return { data: [...records.values()], diagnostics }
 }
+// check whether a sighting matches the selected filters
 export function matches(item: Sighting, filters: Filters) {
   const day = item.observedAt.slice(0, 10)
   return (!filters.from || day >= filters.from) && (!filters.to || day <= filters.to) &&
@@ -124,6 +129,7 @@ export function matches(item: Sighting, filters: Filters) {
     (!filters.species || item.species === filters.species || item.originalSpecies?.toLowerCase() === filters.species.toLowerCase()) &&
     (!filters.query || `${item.locationName} ${item.region}`.toLowerCase().includes(filters.query))
 }
+// calculate totals and reporting trends
 export function aggregate(data: Sighting[]) {
   const byRegion: Record<string, number> = Object.create(null)
   const months: Record<string, number> = Object.create(null)

@@ -1,3 +1,4 @@
+// check independent year controls for reporting charts
 const { chromium } = require('playwright')
 const assert = require('node:assert/strict')
 

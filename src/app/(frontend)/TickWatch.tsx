@@ -22,6 +22,7 @@ type SeasonalSeries = {
   sourceAvailability: { localAvailable: boolean; externalAvailable: boolean } | null
 }
 type SeasonalTone = 'uk' | 'region' | 'location'
+// check whether a sighting can be shown on the map
 export function hasCoordinates(item: Sighting): item is MappedSighting {
   return typeof item.latitude === 'number' && Number.isFinite(item.latitude) && typeof item.longitude === 'number' && Number.isFinite(item.longitude)
 }
@@ -90,17 +91,20 @@ const speciesGuideDetails: Record<string, SpeciesGuideDetails> = {
 }
 const regions = ['All regions', 'Scotland', 'North East', 'North West', 'Yorkshire', 'Midlands', 'Wales', 'East of England', 'London', 'South East', 'South West', 'Northern Ireland']
 const calendarMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+// validate species options returned by the API
 function isSpeciesOption(option: unknown): option is SpeciesOption {
   return typeof option === 'object' && option !== null && 'value' in option && 'label' in option &&
     typeof option.value === 'string' && typeof option.label === 'string' && 'count' in option &&
     typeof option.count === 'number' && Number.isInteger(option.count) && option.count >= 0
 }
+// validate place suggestions returned by the API
 function isPlaceOption(option: unknown): option is PlaceOption {
   return typeof option === 'object' && option !== null && 'value' in option && 'label' in option &&
     typeof option.value === 'string' && typeof option.label === 'string' && 'kind' in option &&
     (option.kind === 'place' || option.kind === 'region' || option.kind === 'place & region')
 }
 
+// show monthly report counts for the selected year
 function SeasonalityChart({ title, scope, series, tone }: { title: string; scope: string; series: SeasonalSeries; tone: SeasonalTone }) {
   const [requestedYear, setRequestedYear] = useState<number | null>(null)
   const years = series.sightings.map(item => Number(item.observedAt.slice(0, 4))).filter(year => Number.isInteger(year) && year > 0)
@@ -157,6 +161,7 @@ function SeasonalityChart({ title, scope, series, tone }: { title: string; scope
   </article>
 }
 
+// manage the main page, filters and report form
 export default function TickWatch() {
   const [sightings, setSightings] = useState<Sighting[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -190,16 +195,19 @@ export default function TickWatch() {
     Number.isFinite(Number(longitude)) && Number(longitude) >= -180 && Number(longitude) <= 180
     ? { latitude: Number(latitude), longitude: Number(longitude) } : null
   const coordinatePairError = Boolean(latitude.trim()) !== Boolean(longitude.trim()) ? 'Provide both latitude and longitude, or leave both blank.' : ''
+  // update report coordinates and clear related errors
   function editCoordinate(name: 'latitude' | 'longitude', value: string) {
     if (name === 'latitude') setLatitude(value)
     else setLongitude(value)
     setPinMessage('')
     setFieldErrors(errors => { const next = { ...errors }; delete next.latitude; delete next.longitude; return next })
   }
+  // close the map picker and restore keyboard focus
   function closeLocationPicker() {
     setPickingLocation(false)
     requestAnimationFrame(() => pinButtonRef.current?.focus())
   }
+  // copy the chosen map pin into the report form
   function confirmLocation(location: PinnedLocation | null) {
     setLatitude(location ? location.latitude.toFixed(6) : '')
     setLongitude(location ? location.longitude.toFixed(6) : '')
@@ -214,6 +222,7 @@ export default function TickWatch() {
 
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [availability, setAvailability] = useState<{ localAvailable: boolean; externalAvailable: boolean } | null>(null)
+  // prepare search filters for the sightings API
   const filterKey = useMemo(() => {
     const params = new URLSearchParams()
     if (from) params.set('from', from)
@@ -237,6 +246,7 @@ export default function TickWatch() {
   const [formError, setFormError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
+  // select the sighting from a shared link
   useEffect(() => {
     const sightingId = new URLSearchParams(window.location.search).get('sighting')
     if (sightingId) {
@@ -245,6 +255,7 @@ export default function TickWatch() {
     }
   }, [])
 
+  // load UK chart data independently of the map filters
   useEffect(() => {
     const controller = new AbortController()
     void fetch('/api/sightings', { signal: controller.signal })
@@ -273,6 +284,7 @@ export default function TickWatch() {
     return () => controller.abort()
   }, [])
 
+  // reload sightings after a short delay when filters change
   useEffect(() => {
     const controller = new AbortController()
     setLoadState('loading')
@@ -312,6 +324,7 @@ export default function TickWatch() {
     return () => { clearTimeout(timer); controller.abort() }
   }, [reload, filterKey, requestKey])
 
+  // process loaded sightings for the current map and list
   const filtered = useMemo(() => viewState !== 'ready' ? [] : sightings.filter((item) => {
     const observed = item.observedAt.slice(0, 10)
     const matchesLocation = `${item.locationName} ${item.region}`.toLowerCase().includes(query.trim().replace(/\s+/g, ' ').toLowerCase())
@@ -325,6 +338,7 @@ export default function TickWatch() {
   const selected = filtered.find((item) => item.id === sharedSightingId) ?? filtered.find((item) => item.id === selectedId) ?? defaultSighting
   const selectedLocationName = selected?.locationName ?? ''
   const selectedRegion = selected?.region ?? ''
+  // load location and region chart data for the selected sighting
   useEffect(() => {
     if (!selectedLocationName) {
       setLocationSeasonality({ sightings: [], state: 'idle', truncated: false, sourceAvailability: null })
@@ -378,9 +392,11 @@ export default function TickWatch() {
   }, [selectedLocationName, selectedRegion])
   const sharedSightingUnavailable = Boolean(sharedSightingId && viewState === 'ready' && !filtered.some((item) => item.id === sharedSightingId))
   const areaSightings = selected ? filtered.filter((item) => item.locationName === selected.locationName && item.region === selected.region) : []
+  // show the four most recent reports at the selected place
   const timelineSightings = [...areaSightings]
     .sort((left, right) => right.observedAt.localeCompare(left.observedAt))
     .slice(0, 4)
+  // filter place suggestions for the search box
   const placeSuggestions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
     return placeOptions
@@ -390,6 +406,7 @@ export default function TickWatch() {
   const showPlaceSuggestions = placeSearchFocused && placeSuggestions.length > 0
   const selectedSpeciesOption = speciesOptions.find((option) => option.value === kind)
   const totalSpeciesSightings = speciesOptions.reduce((sum, option) => sum + option.count, 0)
+  // prepare identification cards from the available species
   const guideSpecies = speciesOptions
     .filter((option) => option.value.toLowerCase() !== 'unknown' && option.label.toLowerCase() !== 'unknown' && option.label.toLowerCase() !== 'unknown species')
     .map((option) => ({
@@ -415,6 +432,7 @@ export default function TickWatch() {
   ).length : 0
   const emptyMessage = viewState === 'loading' ? 'Loading live sightings…' : viewState === 'error' ? loadError || 'Live sightings could not be loaded. Please retry.' : filterKey ? 'No sightings match these filters. Try another area or clear your filters.' : 'No sightings are currently available from the connected sources.'
 
+  // copy a link to the selected sighting
   async function copySightingLink() {
     if (!selected) return
     try {
@@ -428,6 +446,7 @@ export default function TickWatch() {
     }
   }
 
+  // upload the report form and show validation or save results
   async function submit(formData: FormData) {
     if (coordinatePairError) {
       setFieldErrors(errors => ({ ...errors, [latitude.trim() ? 'longitude' : 'latitude']: coordinatePairError }))
@@ -461,9 +480,11 @@ export default function TickWatch() {
     }
   }
 
+  // show the validation message for a form field
   function fieldError(name: string) {
     return fieldErrors[name] ? <small id={`${name}-error`} className="text-red-300">{fieldErrors[name]}</small> : null
   }
+  // connect form fields to accessible error messages
   function fieldProps(name: string) {
     const paired = (name === 'latitude' || name === 'longitude') && coordinatePairError
     return { 'aria-invalid': !!fieldErrors[name] || !!paired, 'aria-describedby': [fieldErrors[name] ? `${name}-error` : '', paired ? 'coordinate-pair-error' : ''].filter(Boolean).join(' ') || undefined }
@@ -471,6 +492,7 @@ export default function TickWatch() {
 
   return (
     <AccessibilityProvider><main className="tickwatch-app min-h-screen bg-[#101917] text-[#f5f8f6]">
+      {/* site navigation */}
       <header className="border-b border-[#30443c] bg-[#172420]">
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-5 py-4 lg:px-10">
           <div className="flex items-center gap-3"><span className="logo-mark" aria-hidden="true" /><div><p className="text-[0.6875rem] font-bold uppercase tracking-[.22em] text-[#9db9aa]">UK field network</p><p className="text-xl font-semibold tracking-[-.03em]">TickWatch</p></div></div>
@@ -605,6 +627,7 @@ export default function TickWatch() {
         </div>
       </section>
 
+      {/* monthly reporting charts */}
       <section id="activity" className="mx-auto max-w-[1500px] px-5 py-12 lg:px-10" aria-label="Seasonal tick activity charts">
         <div className="mb-7 max-w-3xl"><p className="eyebrow text-[#9db9aa]">Educational insights</p><h2 className="section-title">Tick reports through the seasons.</h2><p className="mt-3 text-sm leading-6 text-[#aabbb2]">Compare reported sightings for this location, its region and the UK. Use the year arrows on each chart to browse monthly reports for that year.</p></div>
         <div className="seasonality-grid">
@@ -615,6 +638,7 @@ export default function TickWatch() {
         <p className="mt-5 text-sm leading-6 text-[#aabbb2]">A month with no reports is not evidence that ticks are absent. Reporting coverage varies by place and year.</p>
       </section>
 
+      {/* field guide and read-aloud controls */}
       <section id="learn" className="mx-auto max-w-[1500px] px-5 pb-12 lg:px-10">
         <article data-educational-guide className="rounded-2xl border border-[#30443c] bg-[#172420] p-7 sm:p-10">
           <div className="grid items-center gap-6 overflow-hidden lg:grid-cols-2 lg:gap-0">
@@ -644,6 +668,7 @@ export default function TickWatch() {
         </article>
       </section>
 
+      {/* tick identification gallery */}
       <section id="tick-information" className="mx-auto max-w-[1500px] px-5 pb-16 lg:px-10" aria-labelledby="species-guide">
         <div className="mb-7 max-w-2xl"><p className="eyebrow text-[#9db9aa]">Identification guide</p><h2 id="species-guide" className="section-title">Know what to look for.</h2><p className="mt-3 text-sm leading-6 text-[#aabbb2]">Browse the tick types listed in sightings. Ticks can be difficult to identify without magnification; these cues are a starting point, not a confirmed identification.</p></div>
         <div className="species-gallery-controls">
@@ -665,6 +690,7 @@ export default function TickWatch() {
         <div className="guide-note"><strong>Not sure what you found?</strong><span>“Unknown” is a report category, not a species. Select “Not sure” when reporting and describe what you observed in the field notes.</span></div>
       </section>
 
+      {/* sighting report form with optional photo upload */}
       {reporting && <div className="modal-backdrop" role="dialog" aria-modal={!pickingLocation} aria-hidden={pickingLocation || undefined} inert={pickingLocation} aria-labelledby="report-title"><form onSubmit={(event) => { event.preventDefault(); void submit(new FormData(event.currentTarget)) }} className="modal" aria-busy={pending}>
         <div className="flex items-start justify-between"><div><p className="eyebrow text-[#9db9aa]">Community report</p><h2 id="report-title" className="text-3xl font-semibold tracking-[-.04em]">Report a sighting</h2></div><button type="button" disabled={pending} onClick={() => setReporting(false)} className="close" aria-label="Close">×</button></div>
         <p className="mt-4 text-sm text-[#aabbb2]">Fields marked * are required.</p>
@@ -692,7 +718,9 @@ export default function TickWatch() {
         </fieldset>
         <button disabled={pending} className="submit disabled:opacity-60" type="submit">{pending ? 'Saving report…' : 'Submit for review'}</button>
       </form></div>}
+      {/* map picker for the report location */}
       {reporting && pickingLocation && <LocationMapPicker initialLocation={validLocation} onCancel={closeLocationPicker} onConfirm={confirmLocation}/>}
+      {/* project credits and source information */}
       <footer className="site-footer border-t border-[#30443c] bg-[#172420]">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-1 px-5 py-6 text-sm sm:flex-row sm:items-center sm:justify-between lg:px-10">
           <a className="font-semibold text-[#f5f8f6] underline decoration-[#a8b5aa] underline-offset-4 hover:text-[#92d9b5]" href="https://www.linkedin.com/in/aninisrinivasan/" target="_blank" rel="noreferrer">Anini Pandiyan Sathya <span className="sr-only">(opens LinkedIn in a new tab)</span></a>

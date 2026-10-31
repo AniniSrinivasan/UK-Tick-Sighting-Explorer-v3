@@ -1,3 +1,4 @@
+// load TypeScript source with test replacements for dependencies
 const fs = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript')

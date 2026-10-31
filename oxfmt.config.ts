@@ -1,5 +1,6 @@
 import type { OxfmtConfig } from 'oxfmt'
 
+// configure project code formatting
 export default {
   ignorePatterns: ['**/payload-types.ts', 'tsconfig.json'],
   printWidth: 100,

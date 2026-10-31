@@ -11,6 +11,7 @@ const speciesLabels: Record<string, string> = {
   unknown: 'Unknown',
 }
 
+// build species filter options from the loaded data
 function getSpeciesOptions(data: ReturnType<typeof normalizeRows>['data']) {
   const options = new Map(species.map(value => [value, {
     value,
@@ -28,6 +29,7 @@ function getSpeciesOptions(data: ReturnType<typeof normalizeRows>['data']) {
   return [...options.values()].sort((left, right) => left.label.localeCompare(right.label))
 }
 
+// build place and region search suggestions
 function getPlaceOptions(data: ReturnType<typeof normalizeRows>['data']) {
   const options = new Map<string, { value: string; label: string; kind: 'place' | 'region' | 'place & region' }>()
   const addOption = (value: string, kind: 'place' | 'region') => {
@@ -49,6 +51,7 @@ function getPlaceOptions(data: ReturnType<typeof normalizeRows>['data']) {
   return [...options.values()].sort((left, right) => left.value.localeCompare(right.value))
 }
 
+// load external sightings with response limits and retries
 async function readExternal() {
   let lastError: unknown
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -96,6 +99,7 @@ class PermanentUpstreamError extends Error {}
 let externalCache: { expires: number; value: Awaited<ReturnType<typeof readExternal>> } | undefined
 let externalFlight: Promise<Awaited<ReturnType<typeof readExternal>>> | undefined
 let retryAfter = 0
+// reuse cached external data and share requests already running
 async function externalData() {
   if (externalCache && externalCache.expires > Date.now()) return externalCache.value
   if (Date.now() < retryAfter) throw new Error('Upstream cooldown')
@@ -105,6 +109,7 @@ async function externalData() {
   }).catch(error => { retryAfter = Date.now() + 30000; throw error }).finally(() => { externalFlight = undefined })
   return externalFlight
 }
+// combine community and external sightings and apply filters
 async function dataset(filters: Filters) {
   const empty = () => ({ ...normalizeRows([], 'local'), available: false, truncated: false, fetchedAt: null as string | null })
   const [local, external] = await Promise.all([
@@ -128,6 +133,7 @@ async function dataset(filters: Filters) {
     diagnostics: { local: local.diagnostics, external: external.diagnostics },
   } }
 }
+// return sightings or insights with source availability details
 export async function sightingsResponse(request: Request, insights = false) {
   try {
     const filters = parseFilters(new URL(request.url).searchParams)

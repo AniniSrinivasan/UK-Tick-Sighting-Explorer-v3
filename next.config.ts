@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
 
+// read the optional public preview host
 const makePublicPreviewOrigin = (() => {
   const publicURL = process.env.FIGMA_PUBLIC_URL
   if (!publicURL) return undefined
@@ -18,6 +19,7 @@ const makePublicPreviewOrigin = (() => {
   }
 })()
 
+// configure Next.js, image loading and production output
 const nextConfig: NextConfig = {
   // Keep README.md as the only project Markdown file.
   agentRules: false,

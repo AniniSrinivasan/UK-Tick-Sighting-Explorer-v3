@@ -11,6 +11,7 @@ import { Tags } from './collections/Tags'
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
+// configure the CMS admin, collections and Figma integration
 export default buildFigmaConfig({
   admin: {
     user: Admins.slug,

@@ -1,3 +1,4 @@
+// check UK map bounds and the reset view control
 const { chromium } = require('playwright')
 const assert = require('node:assert/strict')
 ;(async () => {

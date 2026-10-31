@@ -6,6 +6,7 @@ import type { MappedSighting as Sighting } from './TickWatch'
 
 // Includes Northern Ireland, the Isles of Scilly and Shetland.
 const ukBounds: [[number, number], [number, number]] = [[49.8, -8.7], [61, 2]]
+// reset the map to the UK overview
 function resetUKView(map: LeafletMap) {
   map.stop()
   map.invalidateSize({ animate: false })
@@ -18,6 +19,7 @@ function resetUKView(map: LeafletMap) {
 const countColor = (count: number) =>
   count > 75 ? '#9f332d' : count > 50 ? '#cf6427' : count > 25 ? '#e5b53f' : '#2f6a50'
 
+// group sightings that share the same place and coordinates
 function groupByLocation(sightings: Sighting[]) {
   return Array.from(sightings.reduce((groups, sighting) => {
     const key = `${sighting.locationName}:${sighting.latitude}:${sighting.longitude}`
@@ -28,6 +30,7 @@ function groupByLocation(sightings: Sighting[]) {
   }, new Map<string, Sighting[]>()).values())
 }
 
+// map functionality for sighting markers and density views
 export default function LeafletSightingsMap({
   sightings,
   selectedId,
@@ -49,6 +52,7 @@ export default function LeafletSightingsMap({
   const [loadError, setLoadError] = useState(false)
   const locations = groupByLocation(sightings)
 
+  // create the map and load the map tiles
   useEffect(() => {
     let active = true
     let resizeObserver: ResizeObserver | undefined
@@ -106,6 +110,7 @@ export default function LeafletSightingsMap({
     }
   }, [])
 
+  // update markers and heatmap layers for the current sightings
   useEffect(() => {
     const leaflet = leafletRef.current
     const map = mapRef.current

@@ -1,3 +1,4 @@
+// check map pin selection and report form coordinates
 const { chromium } = require('playwright')
 const assert = require('node:assert/strict')
 ;(async () => {

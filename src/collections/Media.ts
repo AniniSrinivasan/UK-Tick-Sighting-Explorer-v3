@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 
 import { createFolderField, createTagField } from 'payload'
 
+// configure photo uploads and media access
 export const Media: CollectionConfig = {
   slug: 'media',
   access: {

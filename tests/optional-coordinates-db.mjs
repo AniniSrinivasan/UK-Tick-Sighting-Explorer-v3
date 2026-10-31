@@ -1,3 +1,4 @@
+// check that loading sightings preserves stored coordinates
 // Verifies the approved schema update without creating or changing report records.
 import mysql from 'mysql2/promise'
 import assert from 'node:assert/strict'

@@ -6,10 +6,12 @@ import type { Map as LeafletMap, Marker } from 'leaflet'
 
 export type PinnedLocation = { latitude: number; longitude: number }
 
+// draw the location pin icon
 export function MapPinIcon({ className = 'h-5 w-5' }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
 }
 
+// map functionality for choosing an optional report location
 export default function LocationMapPicker({ initialLocation, onConfirm, onCancel }: {
   initialLocation: PinnedLocation | null
   onConfirm: (location: PinnedLocation | null) => void
@@ -24,6 +26,7 @@ export default function LocationMapPicker({ initialLocation, onConfirm, onCancel
   const [ready, setReady] = useState(false)
   const [error, setError] = useState(false)
 
+  // open the location dialog and create its interactive map
   useEffect(() => {
     const dialog = dialogRef.current
     dialog?.showModal()
@@ -74,6 +77,7 @@ export default function LocationMapPicker({ initialLocation, onConfirm, onCancel
     // This dialog is mounted fresh on each open; edits are a draft until confirmed.
   }, [])
 
+  // update the marker when the selected location changes
   useEffect(() => {
     const map = mapRef.current
     const leaflet = leafletRef.current

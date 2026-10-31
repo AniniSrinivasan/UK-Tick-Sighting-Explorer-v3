@@ -3,6 +3,7 @@ import { HttpException, Injectable, ServiceUnavailableException } from '@nestjs/
 /** Compatibility proxy only. Next.js owns validation, data access and response shapes. */
 @Injectable()
 export class SightingsService {
+  // send requests to the Next.js API and return its response
   private async forward(path: string, query: Record<string, string | undefined> = {}, body?: unknown) {
     const origin = process.env.NEXT_BACKEND_URL
     if (!origin) throw new ServiceUnavailableException('Set NEXT_BACKEND_URL to the canonical Next.js server.')

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import './styles.css'
 import 'leaflet/dist/leaflet.css'
 
+// page title and sharing details
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
   title: 'TickWatch UK',
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
   },
 }
 
+// set up the shared frontend page layout
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">

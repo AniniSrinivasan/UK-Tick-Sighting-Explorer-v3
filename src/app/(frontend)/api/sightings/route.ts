@@ -7,12 +7,14 @@ import { sightingsResponse } from '@/lib/sightings-service'
 
 export const runtime = 'nodejs'
 
+// upload size and image safety limits
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 const MAX_REQUEST_BYTES = MAX_PHOTO_BYTES + 64 * 1024
 const MAX_JSON_BYTES = 64 * 1024
 const MAX_IMAGE_PIXELS = 40_000_000
 const reportFields = ['observedAt', 'locationName', 'region', 'species', 'severity', 'latitude', 'longitude', 'notes'] as const
 
+// read the request body without exceeding the size limit
 async function readBoundedBody(request: Request, limit: number) {
   const reader = request.body?.getReader()
   if (!reader) return Buffer.alloc(0)
@@ -43,6 +45,7 @@ type ReportPhoto = {
   height: number
 }
 
+// validate the uploaded image, resize it and convert it to WebP
 async function normalizePhoto(file: File): Promise<ReportPhoto | string> {
   if (!file.size) return 'Choose a non-empty image file.'
   if (file.size > MAX_PHOTO_BYTES) return 'Choose an image smaller than 5 MB.'
@@ -71,10 +74,12 @@ async function normalizePhoto(file: File): Promise<ReportPhoto | string> {
   }
 }
 
+// load sightings for the selected filters
 export async function GET(request: Request) {
   return sightingsResponse(request)
 }
 
+// receive a new sighting with an optional photo
 export async function POST(request: Request) {
   const contentType = request.headers.get('content-type')?.toLowerCase() ?? ''
   const isMultipart = contentType.includes('multipart/form-data')
@@ -102,6 +107,7 @@ export async function POST(request: Request) {
     const message = isMultipart ? 'The report or photo is too large.' : 'The report body is too large.'
     return Response.json({ error: message, errors: { form: message } }, { status: 413 })
   }
+  // read form fields and the optional uploaded photo
   if (isMultipart) {
     let form: FormData
     try {
@@ -146,6 +152,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    // validate report fields before saving
     const errors: Record<string, string> = {}
     const observedAt = typeof body.observedAt === 'string' ? body.observedAt : ''
     const date = new Date(observedAt)
@@ -188,6 +195,7 @@ export async function POST(request: Request) {
       let photoWidth: number | undefined
       let photoHeight: number | undefined
       if (payload && normalizedPhoto) {
+        // upload the processed image to the CMS media collection
         const media = await payload.create({
           collection: 'media',
           context: { sightingPhotoUpload: true },
@@ -205,6 +213,7 @@ export async function POST(request: Request) {
         }
       }
 
+      // save the report and its photo reference in MySQL
       const doc = await insertSighting({
         observedAt: date.toISOString(),
         locationName,
@@ -221,6 +230,7 @@ export async function POST(request: Request) {
       })
       return Response.json({ data: doc, message: 'Report received and awaiting verification.' }, { status: 201 })
     } catch (error) {
+      // remove the uploaded photo if saving the report fails
       if (payload && photoMediaId) {
         try {
           await payload.delete({ collection: 'media', id: photoMediaId, overrideAccess: true })

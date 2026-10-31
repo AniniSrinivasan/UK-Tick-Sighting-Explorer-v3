@@ -1,3 +1,4 @@
+// check map rendering after viewport changes
 const { chromium } = require('playwright')
 const assert = require('node:assert/strict')
 ;(async () => {

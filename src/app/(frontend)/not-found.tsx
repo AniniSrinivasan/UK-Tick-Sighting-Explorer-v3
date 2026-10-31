@@ -6,6 +6,7 @@ import Link from "next/link"
  *
  * Customize this component to match your app's design and provide helpful navigation.
  */
+// show a helpful page when a frontend route is missing
 export default function NotFound() {
   return (
     <main className="mx-auto flex min-h-[50vh] max-w-2xl flex-col items-center justify-center px-8 py-16 text-center">

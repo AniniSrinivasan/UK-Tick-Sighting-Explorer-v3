@@ -18,12 +18,14 @@ const PreferencesContext = createContext<{
   read: () => void; pause: () => void; resume: () => void; stop: () => void; reset: () => void
 } | null>(null)
 
+// read shared accessibility preferences
 function usePreferences() {
   const preferences = useContext(PreferencesContext)
   if (!preferences) throw new Error('Accessibility preferences require their provider.')
   return preferences
 }
 
+// manage display preferences and read-aloud controls
 export function AccessibilityProvider({ children }: { children: ReactNode }) {
   const [textSize, setTextSize] = useState<TextSize>('standard')
   const [highContrast, setHighContrast] = useState(false)
@@ -35,6 +37,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
   const session = useRef(0)
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
 
+  // load saved display preferences and check speech support
   useEffect(() => {
     window.speechSynthesis?.getVoices() // Start loading voices before the first click.
     setSupported(typeof window.speechSynthesis?.speak === 'function' && typeof window.SpeechSynthesisUtterance === 'function')
@@ -55,6 +58,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // apply display preferences and save them in this browser
   useEffect(() => {
     if (!hydrated) return
     document.documentElement.dataset.textSize = textSize
@@ -63,6 +67,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
     catch { setStorageAvailable(false) }
   }, [textSize, highContrast, hydrated])
 
+  // stop the current reading session
   const stop = useCallback(() => {
     session.current++
     if (utteranceRef.current) window.speechSynthesis?.cancel()
@@ -71,6 +76,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
     setSpeechMessage('Reading stopped.')
   }, [])
 
+  // read the field guide using a supported browser voice
   async function read() {
     if (!supported) return
     const guide = document.querySelector('[data-educational-guide]')
@@ -159,6 +165,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
   return <PreferencesContext.Provider value={{ textSize, setTextSize, highContrast, setHighContrast, storageAvailable, supported, reading, speechMessage, read, pause, resume, stop, reset }}>{children}</PreferencesContext.Provider>
 }
 
+// show the field guide reading controls
 export function GuideReadAloud({ inPanel = false }: { inPanel?: boolean }) {
   const { supported, reading, speechMessage, read, pause, resume, stop } = usePreferences()
   return <div data-speech-controls className={inPanel ? '' : 'mt-6'}>
@@ -172,6 +179,7 @@ export function GuideReadAloud({ inPanel = false }: { inPanel?: boolean }) {
   </div>
 }
 
+// show the accessibility settings dialog
 export function AccessibilityPanel() {
   const preferences = usePreferences()
   const [open, setOpen] = useState(false)

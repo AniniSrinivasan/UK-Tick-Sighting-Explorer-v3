@@ -1,3 +1,4 @@
+// check navigation, sharing, charts, species cards and photo submission
 const { chromium } = require('playwright')
 const assert = require('node:assert/strict')
 

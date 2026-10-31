@@ -1,3 +1,4 @@
+// check report validation, photo uploads and data source failures
 // Run: mise exec -- node tests/p0-api.cjs
 // Exercise the actual route with isolated storage/upstream adapters; no real records are written.
 const assert = require('node:assert/strict')
