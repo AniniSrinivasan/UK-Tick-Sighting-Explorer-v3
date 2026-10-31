@@ -388,3 +388,55 @@ cover that same complete result set. Server filters, source bounds and visible
 truncation/availability warnings remain. No Next/Previous controls or page-size
 parameters are used by the frontend. Regression checks now verify all 650 test
 reports appear together and location filtering retains complete counts.
+
+## Follow-up — report location map picker (31 October 2026)
+
+Added a Leaflet/OpenStreetMap picker beneath the existing optional manual
+coordinate inputs. A draft pin can be clicked, moved, cleared, confirmed or
+canceled; confirming updates only the coordinate inputs without submitting.
+Reopening restores valid manual/pinned coordinates. Other form values and the
+selected photo remain mounted and preserved. No database or API shape changes.
+
+The current user request supersedes earlier independent-coordinate/UK-bounds
+validation: both coordinates must now be supplied together or omitted together;
+latitude accepts -90 to 90 and longitude -180 to 180. The same ranges apply to
+API validation and normalization, so confirmed community positions survive reads.
+The main map can display these positions beyond the UK while retaining its UK
+initial view. Community reports without coordinates are not geocoded and still
+contribute to regional/monthly counts. Elanco city-centre inference and disclaimer
+are preserved.
+
+The native dialog supports keyboard opening, an explicit focus loop, Escape,
+labelled close/cancel controls and focus return to the opener. Manual coordinate
+entry remains the alternative. The picker observes size changes like the main
+map; the bottom-tile resize regression is covered by `tests/map-resize.cjs`.
+
+Verification includes TypeScript, API validation/save/read/photo checks, existing
+report/filter browser checks, and `tests/location-picker-browser.cjs` for single
+pin movement, confirm/clear/cancel, preservation, keyboard and mobile behavior.
+**Verify production delivery** remains pending: the Figma CLI is unavailable and
+the local Payload build cannot resolve the platform Figma environment ID.
+
+## Follow-up — accessibility preferences (31 October 2026)
+
+Added a keyboard-accessible header panel for Standard (100%), Larger (112.5%)
+and Largest (125%) text, high contrast, and educational-guide audio. Text and
+contrast preferences persist in this browser, with a reset action. Existing
+custom font sizes now use relative units so the preference changes guide text,
+controls and labels as well as headings. Header controls wrap on small screens.
+
+Read-aloud uses the browser Speech Synthesis API and the existing written
+prevention guide, with shared controls in the panel and guide. Playback starts
+only after a user action; pause, resume, stop, completion and errors have visible
+feedback. Short chunks keep long reads bounded; stale completion events cannot
+restart stopped speech. Unsupported speech and unavailable local storage have
+working fallbacks. No server records, account preferences or dependencies added.
+
+`tests/accessibility-browser.cjs` passed for actual computed text scaling,
+contrast, persistence/reset, full-guide speech lifecycle through a deterministic
+browser adapter, keyboard/Escape/focus containment, mobile layout and capability
+fallbacks. TypeScript and existing map resize, picker, reporting and filter
+browser regressions passed. Speech voice availability depends on the browser and
+device; the test validates controls and content rather than audible output.
+**Verify production delivery** remains pending under the existing Figma CLI and
+platform environment-ID limitations.

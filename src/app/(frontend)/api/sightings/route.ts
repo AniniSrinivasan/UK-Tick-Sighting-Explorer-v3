@@ -167,8 +167,11 @@ export async function POST(request: Request) {
       typeof value === 'string' && /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(value.trim()) ? Number(value) : NaN
     const latitude = coordinate(body.latitude)
     const longitude = coordinate(body.longitude)
-    if (latitude !== null && (!Number.isFinite(latitude) || latitude < 49 || latitude > 61)) errors.latitude = 'Enter a latitude between 49 and 61.'
-    if (longitude !== null && (!Number.isFinite(longitude) || longitude < -9 || longitude > 2.5)) errors.longitude = 'Enter a longitude between -9 and 2.5.'
+    if (latitude !== null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) errors.latitude = 'Enter a latitude between -90 and 90.'
+    if (longitude !== null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180)) errors.longitude = 'Enter a longitude between -180 and 180.'
+    if ((latitude === null) !== (longitude === null)) {
+      errors[latitude === null ? 'latitude' : 'longitude'] = 'Provide both latitude and longitude, or leave both blank.'
+    }
     if (body.notes !== undefined && (typeof body.notes !== 'string' || body.notes.trim().length > 1000)) errors.notes = 'Field notes must be text of at most 1000 characters.'
     if (photo && photo.size > MAX_PHOTO_BYTES) errors.photo = 'Choose an image smaller than 5 MB.'
     if (Object.keys(errors).length) return Response.json({ error: 'Please check the highlighted fields.', errors }, { status: 400 })

@@ -50,8 +50,10 @@ to Payload is a separate, explicitly planned migration, not part of this change.
   Both unavailable returns HTTP 503; an available empty source is not a failure.
   `meta.truncated` explicitly warns that totals represent a bounded subset.
 - `POST /api/sightings` validates/allowlists public fields and writes a pending
-  community report. Blank, omitted or null coordinates are allowed independently;
-  supplied coordinates must be decimal numbers within the application's UK bounds.
+  community report. Blank, omitted or null coordinates are allowed as an empty pair;
+  supplied coordinates must form a complete pair, with latitude from -90 to 90
+  and longitude from -180 to 180. The form can fill these through its Leaflet
+  picker or manual inputs.
   Workflow fields cannot be supplied by the client. JSON remains supported;
   multipart requests can also include one optional JPEG, PNG or WebP photo up to
   5 MiB. The server bounds the request, decodes and re-encodes the image as WebP,
@@ -186,3 +188,19 @@ combined/filtered insight totals. TypeScript and NestJS build checks also pass.
 Production verification remains pending: the Figma CLI is unavailable and the
 Payload build cannot resolve the platform Figma environment ID in this local
 shell. No platform secrets or template internals were changed to bypass this.
+
+## Accessibility preferences
+
+The frontend accessibility provider stores text size and high contrast in
+browser local storage under `tickwatch-accessibility-v1`; these are not account
+or server preferences. Relative font sizes scale existing labels and controls.
+The preferences dialog supports keyboard focus containment, Escape, focus return
+and reset. High contrast preserves geographic tiles while strengthening text,
+controls and marker labels.
+
+The [browser Speech Synthesis API](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesis)
+reads the existing prevention-guide content after a user action. Shared panel
+and guide controls manage short utterances, pause/resume, cancellation and error
+feedback. Speech does not start on reload and is not saved as a preference.
+Voice availability depends on the browser/device; unsupported browsers retain
+the written guide. No new backend, external paid service or API key is involved.

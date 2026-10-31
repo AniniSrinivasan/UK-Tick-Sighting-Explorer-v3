@@ -74,8 +74,8 @@ export function normalizeRows(rows: unknown[], origin: 'local' | 'external') {
     const assumedUtc = date.length > 10 && !/(Z|[+-]\d{2}:\d{2})$/.test(date)
     if (assumedUtc) diagnostics.assumedUtc++
     const known = cityLocationLookup[locationName.toLowerCase()]
-    let latitude = decimal(row.latitude ?? row.lat, 49, 61)
-    let longitude = decimal(row.longitude ?? row.lng ?? row.lon, -9, 2.5)
+    let latitude = decimal(row.latitude ?? row.lat, -90, 90)
+    let longitude = decimal(row.longitude ?? row.lng ?? row.lon, -180, 180)
     // Only infer a complete city-centre pair when neither coordinate was supplied.
     const supplied = [row.latitude ?? row.lat, row.longitude ?? row.lng ?? row.lon]
     if (origin === 'external' && known && supplied.every(value => value == null || value === '')) {

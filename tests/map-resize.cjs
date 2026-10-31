@@ -8,7 +8,7 @@ const assert = require('node:assert/strict')
     page.on('pageerror', error => errors.push(error.message))
     // Deterministic tiles isolate sizing from the external tile server's availability.
     await page.route('https://tile.openstreetmap.org/**', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#b6d6df"/></svg>' }))
-    await page.route('**/api/sightings*', route => route.fulfill({ json: { data: [{ id: 'one', observedAt: '2026-01-01T00:00:00Z', locationName: 'London', region: 'London', latitude: 51.5, longitude: 0, species: 'unknown', severity: 'low', source: 'community' }], meta: { localAvailable: true, externalAvailable: true, total: 1 } } }))
+    await page.route('**/api/sightings*', route => route.fulfill({ json: { data: [{ id: 'one', observedAt: '2026-01-01T00:00:00Z', locationName: 'London', region: 'London', latitude: 51.5, longitude: 0, species: 'unknown', severity: 'low', source: 'community' }], meta: { localAvailable: true, externalAvailable: true, total: 1, speciesOptions: [{ value: 'unknown', label: 'Unknown', count: 1 }], placeOptions: [{ value: 'London', label: 'London', kind: 'place' }] } } }))
     await page.goto('http://localhost:3000/', { waitUntil: 'networkidle' })
     await page.locator('.leaflet-tile-loaded').first().waitFor()
     const covered = () => page.waitForFunction(() => {
@@ -30,7 +30,7 @@ const assert = require('node:assert/strict')
       const map = document.querySelector('.leaflet-map')
       const canvas = document.querySelector('.leaflet-heatmap-layer')
       return canvas && canvas.height === map.clientHeight && canvas.width === map.clientWidth
-    })
+    }, null, { timeout: 5000 })
     await page.locator('#map').evaluate(el => { el.style.minHeight = '' })
     await covered()
     await page.setViewportSize({ width: 390, height: 844 })

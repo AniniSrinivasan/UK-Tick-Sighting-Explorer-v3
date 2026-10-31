@@ -50,8 +50,8 @@ const get = () => GET(new Request('http://test/api/sightings'))
   for (const [field, values] of Object.entries({
     observedAt: ['2026-02-30', '2025-02-29', '9999-01-01', '2026-01-01T00:00:00Z', null, 1, []],
     locationName: [null, [], {}, 42, ' ', 'x'.repeat(121)],
-    latitude: [true, [], {}, '0x33', 48, 62],
-    longitude: [false, [], {}, -10, 3],
+    latitude: [true, [], {}, '0x33', -91, 91],
+    longitude: [false, [], {}, -181, 181],
     region: [null, [], 'invalid'], species: [false, [], 'invalid'], severity: [null, [], 'invalid'], notes: [null, {}, [], 1, 'x'.repeat(1001)],
   })) {
     for (const value of values) {
@@ -108,9 +108,20 @@ const get = () => GET(new Request('http://test/api/sightings'))
     assert.equal(result.data.latitude, null)
     assert.equal(result.data.longitude, null)
   }
+  for (const [latitude, longitude] of [[-90, -180], [90, 180], [40.7128, -74.006]]) {
+    const response = await post({ ...valid, latitude, longitude })
+    assert.equal(response.status, 201)
+    const saved = await response.json()
+    assert.equal(saved.data.latitude, latitude)
+    assert.equal(saved.data.longitude, longitude)
+  }
+  stored = stored.slice(-1)
+  const roundTrip = await (await get()).json()
+  assert.ok(roundTrip.data.some(row => row.latitude === 40.7128 && row.longitude === -74.006))
+  assert.equal((await post({ ...valid, longitude: null })).status, 400)
   const partial = await post({ ...valid, latitude: '' })
-  assert.equal(partial.status, 201)
-  assert.equal((await partial.json()).data.longitude, 0)
+  assert.equal(partial.status, 400)
+  assert.match((await partial.json()).errors.latitude, /both latitude and longitude/)
   stored = [{ ...stored[0], id: 'sample-new-forest', species: 'hedgehog', locationName: 'New Forest', region: 'South East', observedAt: '2025-05-18T12:00:00Z' }]
   const hedgehogResults = await (await get()).json()
   assert.equal(hedgehogResults.data.length, 1)

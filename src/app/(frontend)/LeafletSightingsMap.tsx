@@ -53,9 +53,9 @@ export default function LeafletSightingsMap({
         center: [54.5, -3],
         zoom: 5.25,
         zoomSnap: 0.25,
-        minZoom: 4,
+        minZoom: 2,
         maxZoom: 15,
-        maxBounds: [[48, -13], [62.5, 5]],
+        worldCopyJump: true,
         zoomControl: false,
       })
       leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -170,14 +170,14 @@ export default function LeafletSightingsMap({
           </div>
         )}
         {mode === 'density' ? (
-          <div className="pointer-events-none absolute bottom-6 left-4 z-[500] w-[230px] max-w-[calc(100%-80px)] rounded-2xl bg-white/95 p-4 text-[11px] shadow-lg backdrop-blur">
+          <div className="pointer-events-none absolute bottom-6 left-4 z-[500] w-[230px] max-w-[calc(100%-80px)] rounded-2xl bg-white/95 p-4 text-[0.6875rem] shadow-lg backdrop-blur">
             <strong className="block text-xs">Reported tick density</strong>
             <div className="my-2 h-2 rounded-full bg-gradient-to-r from-[#2f6a50] via-[#e5b53f] to-[#9f332d]" />
             <div className="flex justify-between"><span>Lower</span><span>Higher</span></div>
             <p className="mt-2 leading-relaxed text-[#59675f]">Relative concentration of matching reports. Not a measure of tick population.</p>
           </div>
         ) : (
-          <div className="map-count-legend pointer-events-none absolute bottom-6 left-4 z-[500] rounded-2xl bg-white/95 p-3 text-[11px] shadow-lg backdrop-blur"><strong>Reports per location</strong><div><span className="count-dot count-low"/>1–25 <span className="count-dot count-mid"/>26–50 <span className="count-dot count-high"/>51–75 <span className="count-dot count-peak"/>76+</div></div>
+          <div className="map-count-legend pointer-events-none absolute bottom-6 left-4 z-[500] rounded-2xl bg-white/95 p-3 text-[0.6875rem] shadow-lg backdrop-blur"><strong>Reports per location</strong><div><span className="count-dot count-low"/>1–25 <span className="count-dot count-mid"/>26–50 <span className="count-dot count-high"/>51–75 <span className="count-dot count-peak"/>76+</div></div>
         )}
       </div>
     </div>

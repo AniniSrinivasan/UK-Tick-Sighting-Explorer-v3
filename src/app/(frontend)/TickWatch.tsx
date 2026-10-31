@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import LeafletSightingsMap from './LeafletSightingsMap'
+import { AccessibilityProvider, AccessibilityPanel, GuideReadAloud } from './AccessibilityPreferences'
+import LocationMapPicker, { MapPinIcon, type PinnedLocation } from './LocationMapPicker'
 
 export type Sighting = { id: string; observedAt: string; locationName: string; region: string; latitude: number | null; longitude: number | null; species: string; originalSpecies?: string; severity: string; notes?: string; photoMediaId?: string; photoUrl?: string; photoWidth?: number; photoHeight?: number; source: string; reportCount?: number }
 
@@ -149,6 +151,36 @@ export default function TickWatch() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [reporting, setReporting] = useState(false)
+  const [pickingLocation, setPickingLocation] = useState(false)
+  const [latitude, setLatitude] = useState('')
+  const [longitude, setLongitude] = useState('')
+  const [pinMessage, setPinMessage] = useState('')
+  const pinButtonRef = useRef<HTMLButtonElement>(null)
+  const validLocation: PinnedLocation | null = latitude.trim() && longitude.trim() &&
+    Number.isFinite(Number(latitude)) && Number(latitude) >= -90 && Number(latitude) <= 90 &&
+    Number.isFinite(Number(longitude)) && Number(longitude) >= -180 && Number(longitude) <= 180
+    ? { latitude: Number(latitude), longitude: Number(longitude) } : null
+  const coordinatePairError = Boolean(latitude.trim()) !== Boolean(longitude.trim()) ? 'Provide both latitude and longitude, or leave both blank.' : ''
+  function editCoordinate(name: 'latitude' | 'longitude', value: string) {
+    if (name === 'latitude') setLatitude(value)
+    else setLongitude(value)
+    setPinMessage('')
+    setFieldErrors(errors => { const next = { ...errors }; delete next.latitude; delete next.longitude; return next })
+  }
+  function closeLocationPicker() {
+    setPickingLocation(false)
+    requestAnimationFrame(() => pinButtonRef.current?.focus())
+  }
+  function confirmLocation(location: PinnedLocation | null) {
+    setLatitude(location ? location.latitude.toFixed(6) : '')
+    setLongitude(location ? location.longitude.toFixed(6) : '')
+    setFieldErrors(errors => { const next = { ...errors }; delete next.latitude; delete next.longitude; return next })
+    setPinMessage(location ? 'Location pinned successfully.' : 'Location pin cleared.')
+    closeLocationPicker()
+  }
+  useEffect(() => {
+    if (!reporting) { setLatitude(''); setLongitude(''); setPinMessage(''); setPickingLocation(false) }
+  }, [reporting])
   const [status, setStatus] = useState('')
 
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -366,6 +398,11 @@ export default function TickWatch() {
   }
 
   async function submit(formData: FormData) {
+    if (coordinatePairError) {
+      setFieldErrors(errors => ({ ...errors, [latitude.trim() ? 'longitude' : 'latitude']: coordinatePairError }))
+      setFormError('Please check the highlighted fields.')
+      return
+    }
     if (submitting.current) return
     submitting.current = true
     setPending(true)
@@ -397,18 +434,19 @@ export default function TickWatch() {
     return fieldErrors[name] ? <small id={`${name}-error`} className="text-red-700">{fieldErrors[name]}</small> : null
   }
   function fieldProps(name: string) {
-    return { 'aria-invalid': !!fieldErrors[name], 'aria-describedby': fieldErrors[name] ? `${name}-error` : undefined }
+    const paired = (name === 'latitude' || name === 'longitude') && coordinatePairError
+    return { 'aria-invalid': !!fieldErrors[name] || !!paired, 'aria-describedby': [fieldErrors[name] ? `${name}-error` : '', paired ? 'coordinate-pair-error' : ''].filter(Boolean).join(' ') || undefined }
   }
 
   return (
-    <main className="min-h-screen bg-[#f2f3ed] text-[#18251f]">
+    <AccessibilityProvider><main className="tickwatch-app min-h-screen bg-[#f2f3ed] text-[#18251f]">
       <header className="border-b border-[#d7dbd2] bg-[#f8f8f3]">
-        <div className="mx-auto flex max-w-[1500px] items-center justify-between px-5 py-4 lg:px-10">
-          <div className="flex items-center gap-3"><span className="logo-mark" aria-hidden="true" /><div><p className="text-[11px] font-bold uppercase tracking-[.22em] text-[#57715d]">UK field network</p><p className="text-xl font-semibold tracking-[-.03em]">TickWatch</p></div></div>
-          <nav aria-label="Main navigation" className="site-nav order-3 flex w-full items-center justify-between gap-4 overflow-x-auto text-xs font-medium sm:gap-6 sm:text-sm md:order-none md:w-auto">
+        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-5 py-4 lg:px-10">
+          <div className="flex items-center gap-3"><span className="logo-mark" aria-hidden="true" /><div><p className="text-[0.6875rem] font-bold uppercase tracking-[.22em] text-[#57715d]">UK field network</p><p className="text-xl font-semibold tracking-[-.03em]">TickWatch</p></div></div>
+          <nav aria-label="Main navigation" className="site-nav order-3 flex w-full items-center justify-between gap-4 overflow-x-auto text-xs font-medium sm:gap-6 sm:text-sm lg:order-none lg:w-auto">
             <a href="#map">Sightings Map</a><a href="#activity">Charts &amp; Trends</a><a href="#tick-information">Identify a Tick</a><a href="#learn">About Ticks</a>
           </nav>
-          <button onClick={() => { setReporting(true); setFormError(''); setFieldErrors({}); setStatus('') }} className="rounded-full bg-[#173e2b] px-3 py-2.5 text-xs font-semibold text-white hover:bg-[#28573e] sm:px-5 sm:text-sm">Report a sighting</button>
+          <div className="flex flex-wrap items-center gap-2"><AccessibilityPanel/><button onClick={() => { setReporting(true); setFormError(''); setFieldErrors({}); setStatus('') }} className="rounded-full bg-[#173e2b] px-3 py-2.5 text-xs font-semibold text-white hover:bg-[#28573e] sm:px-5 sm:text-sm">Report a sighting</button></div>
         </div>
       </header>
 
@@ -508,7 +546,7 @@ export default function TickWatch() {
           <aside className="border-l border-[#e2e5de] p-6 lg:p-8">
             {sharedSightingUnavailable && <p role="status" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-[#5d6b62]">The sighting in this link is unavailable in the current results{selected ? '; showing the latest available report instead.' : '.'}</p>}
             {selected ? <>
-            <div className="mb-8 flex items-start justify-between"><div><p className="mb-2 text-xs font-bold uppercase tracking-[.16em] text-[#718376]">Selected report</p><h2 className="text-2xl font-semibold tracking-[-.04em]">{selected?.locationName ?? 'UK'}</h2><p className="mt-1 text-sm text-[#718076]">{selected?.region ?? 'the UK'}</p></div><span className={`severity severity-${selected.severity}`}>{selected.severity}</span></div>
+            <div className="mb-8 flex items-start justify-between"><div><p className="mb-2 text-xs font-bold uppercase tracking-[.16em] text-[#718376]">Selected report</p><h2 className="text-2xl font-semibold tracking-[-.04em]">{selected?.locationName ?? 'UK'}</h2><p className="mt-1 text-sm text-[#718076]">{selected?.region ?? 'the UK'}</p></div></div>
             <p className="mb-6 text-sm leading-6 text-[#5d6b62]"><strong className="text-[#18251f]">{selectedCount} {selectedCount === 1 ? 'sighting' : 'sightings'}</strong> reported at {selected?.locationName ?? 'UK'}. Showing the latest report.</p>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-[#e5e7e1] py-6 text-sm"><div><dt>Species</dt><dd>{selected.originalSpecies ?? speciesLabel[selected.species] ?? 'Unknown'}</dd></div><div><dt>Observed</dt><dd>{new Date(selected.observedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</dd></div><div><dt>Source</dt><dd className="capitalize">{selected.source}</dd></div><div><dt>Coordinates</dt><dd>{hasCoordinates(selected) ? `${selected.latitude.toFixed(2)}, ${selected.longitude.toFixed(2)}` : 'Not provided'}</dd></div></dl>
             <p className="my-6 text-sm leading-6 text-[#526159]">{selected.notes ?? 'No additional field notes were provided.'}</p>
@@ -532,9 +570,10 @@ export default function TickWatch() {
       </section>
 
       <section id="learn" className="mx-auto max-w-[1500px] px-5 pb-12 lg:px-10">
-        <article className="rounded-[24px] border border-[#d7dbd2] bg-[#f8f8f3] p-7 sm:p-10">
+        <article data-educational-guide className="rounded-[24px] border border-[#d7dbd2] bg-[#f8f8f3] p-7 sm:p-10">
           <p className="eyebrow text-[#718376]">Field guide</p>
           <h2 className="section-title">Prevent bites and know what to do.</h2>
+          <GuideReadAloud/>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5d6b62]">Ticks can be found in woodland, long grass and gardens. A few simple checks can help reduce bites and make it easier to spot and remove a tick promptly.</p>
           <div className="field-guide-grid">
             <section><p className="field-guide-number">01 · BEFORE YOU GO</p><h3>Reduce exposed skin</h3><ul><li>Wear long sleeves and trousers; tuck trousers into socks when walking through grass or woodland.</li><li>Light-coloured clothing can make ticks easier to see.</li><li>Stay on clear paths where possible and use an insect repellent according to its label.</li></ul></section>
@@ -567,7 +606,7 @@ export default function TickWatch() {
         <div className="guide-note"><strong>Not sure what you found?</strong><span>“Unknown” is a report category, not a species. Select “Not sure” when reporting and describe what you observed in the field notes.</span></div>
       </section>
 
-      {reporting && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="report-title"><form onSubmit={(event) => { event.preventDefault(); void submit(new FormData(event.currentTarget)) }} className="modal" aria-busy={pending}>
+      {reporting && <div className="modal-backdrop" role="dialog" aria-modal={!pickingLocation} aria-hidden={pickingLocation || undefined} inert={pickingLocation} aria-labelledby="report-title"><form onSubmit={(event) => { event.preventDefault(); void submit(new FormData(event.currentTarget)) }} className="modal" aria-busy={pending}>
         <div className="flex items-start justify-between"><div><p className="eyebrow text-[#718376]">Community report</p><h2 id="report-title" className="text-3xl font-semibold tracking-[-.04em]">Report a sighting</h2></div><button type="button" disabled={pending} onClick={() => setReporting(false)} className="close" aria-label="Close">×</button></div>
         <p className="mt-4 text-sm text-[#5d6b62]">Fields marked * are required.</p>
         {formError && <p role="alert" className="my-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{formError}</p>}
@@ -579,20 +618,28 @@ export default function TickWatch() {
           <label><span>Species <span aria-hidden="true">*</span></span><select required name="species" {...fieldProps('species')}><option value="unknown">Not sure</option><option value="sheep">Sheep tick</option><option value="hedgehog">Hedgehog tick</option><option value="ornate-cow">Ornate cow tick</option></select>{fieldError('species')}</label>
           <label><span>Activity <span aria-hidden="true">*</span></span><select required name="severity" {...fieldProps('severity')}><option value="low">Low — one tick</option><option value="moderate">Moderate — several</option><option value="high">High — cluster</option></select>{fieldError('severity')}</label>
           <div className="col-span-2 text-sm text-[#5d6b62]"><strong className="block font-semibold text-[#18251f]">Coordinates (optional)</strong><span>You can submit a sighting without coordinates. Your report will still contribute to regional statistics. Providing both latitude and longitude allows the sighting to be displayed at its reported location on the map.</span></div>
-          <label><span>Latitude</span><input min={49} max={61} name="latitude" {...fieldProps('latitude')} type="number" step="any" placeholder="51.507"/>{fieldError('latitude')}</label>
-          <label><span>Longitude</span><input min={-9} max={2.5} name="longitude" {...fieldProps('longitude')} type="number" step="any" placeholder="-0.127"/>{fieldError('longitude')}</label>
+          <label><span>Latitude</span><input min={-90} max={90} value={latitude} onChange={event => editCoordinate('latitude', event.target.value)} name="latitude" {...fieldProps('latitude')} type="number" step="any" placeholder="51.507"/>{fieldError('latitude')}</label>
+          <label><span>Longitude</span><input min={-180} max={180} value={longitude} onChange={event => editCoordinate('longitude', event.target.value)} name="longitude" {...fieldProps('longitude')} type="number" step="any" placeholder="-0.127"/>{fieldError('longitude')}</label>
+          <div className="col-span-2">
+            {coordinatePairError && <p id="coordinate-pair-error" className="mb-3 text-sm text-red-700" role="status">{coordinatePairError}</p>}
+            <button ref={pinButtonRef} type="button" onClick={() => { setPinMessage(''); setPickingLocation(true) }} aria-haspopup="dialog" className="inline-flex items-center gap-2 rounded-full border border-[#a8b5aa] bg-[#e6ecdf] px-4 py-2.5 text-sm font-semibold text-[#173e2b] hover:bg-[#dce8df] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#173e2b]">
+              <MapPinIcon/>{validLocation ? 'Edit pinned location' : 'Pin location on map'}
+            </button>
+            {pinMessage && <p role="status" className="mt-3 text-sm text-[#173e2b]">{pinMessage}</p>}
+          </div>
           <label className="col-span-2">Field notes<textarea maxLength={1000} name="notes" {...fieldProps('notes')} rows={3} placeholder="Where was it found? Was it attached?"/>{fieldError('notes')}</label>
           <label className="col-span-2"><span>Photo <span className="optional">optional · JPEG, PNG or WebP, up to 5 MB</span></span><input name="photo" type="file" accept="image/jpeg,image/png,image/webp" aria-invalid={!!fieldErrors.photo} aria-describedby={fieldErrors.photo ? 'photo-error photo-privacy' : 'photo-privacy'}/>{fieldError('photo')}</label>
           <p id="photo-privacy" className="col-span-2 text-sm text-[#5d6b62]">Photos are shown with the report and may be publicly accessible. Avoid including faces, personal details or identifying information.</p>
         </fieldset>
         <button disabled={pending} className="submit disabled:opacity-60" type="submit">{pending ? 'Saving report…' : 'Submit for review'}</button>
       </form></div>}
+      {reporting && pickingLocation && <LocationMapPicker initialLocation={validLocation} onCancel={closeLocationPicker} onConfirm={confirmLocation}/>}
       <footer className="site-footer border-t border-[#d7dbd2] bg-[#f8f8f3]">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-1 px-5 py-6 text-sm sm:flex-row sm:items-center sm:justify-between lg:px-10">
           <a className="font-semibold text-[#18251f] underline decoration-[#a8b5aa] underline-offset-4 hover:text-[#173e2b]" href="https://www.linkedin.com/in/aninisrinivasan/" target="_blank" rel="noreferrer">Anini Pandiyan Sathya <span className="sr-only">(opens LinkedIn in a new tab)</span></a>
           <p className="text-[#5d6b62]">Elanco Placement Program: Technical Task – Full Stack</p>
         </div>
       </footer>
-    </main>
+    </main></AccessibilityProvider>
   )
 }
