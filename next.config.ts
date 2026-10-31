@@ -19,6 +19,8 @@ const makePublicPreviewOrigin = (() => {
 })()
 
 const nextConfig: NextConfig = {
+  // Keep README.md as the only project Markdown file.
+  agentRules: false,
   webpack: (webpackConfig) => {
     webpackConfig.resolve.extensionAlias = {
       '.cjs': ['.cts', '.cjs'],

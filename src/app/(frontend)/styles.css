@@ -90,28 +90,6 @@ dt { color:#a5b9ae; font-size:0.6875rem; text-transform:uppercase; letter-spacin
 .form-grid { display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:25px }.form-grid label{font-size:0.75rem;font-weight:700;display:grid;gap:7px}.form-grid input,.form-grid select,.form-grid textarea{width:100%;border:1px solid #3b5146;border-radius:10px;background:#101917;padding:11px 12px;font:inherit;font-weight:400;outline:none}.form-grid input:focus,.form-grid select:focus,.form-grid textarea:focus{border-color:#92d9b5;box-shadow:0 0 0 3px #30443c}.form-grid small{font-weight:400;color:#a5b9ae}.optional{font-weight:400;color:#a5b9ae}.submit{width:100%;margin-top:22px;border-radius:8px;background:#92d9b5;color:#172420;padding:13px;font-size:0.875rem;font-weight:700}
 @media(max-width:640px){.form-grid{grid-template-columns:1fr}.form-grid .col-span-2{grid-column:span 1}.modal{padding:22px}.search-control,.search-control input{width:100%}.date-control{flex:1}.species-card{display:block}.species-card .tick-illustration{height:140px}.species-card .species-kicker{margin-top:20px}.guide-note{display:grid}}
 
-.figma-custom-code-fragment {
-  display: contents;
-}
-
-.figma-bypass-link {
-  position: fixed;
-  top: 8px;
-  left: 8px;
-  z-index: 2147483647;
-  transform: translateY(-150%);
-  border-radius: 6px;
-  background: #111827;
-  color: #fff;
-  padding: 8px 12px;
-  font: 600 14px/1.2 system-ui, sans-serif;
-  text-decoration: none;
-}
-
-.figma-bypass-link:focus {
-  transform: translateY(0);
-}
-
 /* Browser-local display preferences; relative units preserve browser zoom too. */
 html[data-text-size="standard"] { font-size:100%; }
 html[data-text-size="larger"] { font-size:112.5%; }

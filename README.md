@@ -1,51 +1,88 @@
-# UK Tick Sighting Explorer
+# TickWatch UK — UK Tick Sighting Explorer
 
-Explore and report tick sightings across the UK.
+A local demo for exploring and reporting UK tick sightings. Built with Next.js,
+React, Tailwind CSS and Leaflet, with MySQL for community reports.
 
-## Local setup
+## Run locally
 
-Run these commands from the project folder. On macOS, the first command requires
-Homebrew; skip it if Mise is already installed.
+The project pins Node.js `24.22.1` and pnpm `10.34.9` in `.mise.toml`.
+With Mise installed, run from this folder:
 
 ```sh
-brew install mise
 mise trust .mise.toml
 mise install
-mise exec -- node --version
-mise exec -- pnpm --version
 mise exec -- pnpm install --frozen-lockfile
 mise exec -- pnpm dev
 ```
 
-The version checks should print Node `v24.22.1` and pnpm `10.34.9`.
-Open http://localhost:3000 (or the port specified by `PORT`). Keep the terminal
-open while using the app; press Ctrl+C to stop the server.
+Open **http://localhost:3000**. Keep the terminal running during the demo;
+press Ctrl+C to stop it. Set `PORT` if another port is needed.
 
-- `mise install` installs the tool versions pinned in `.mise.toml`.
-- `mise exec --` runs a command using those tools instead of the global versions.
-- `pnpm install --frozen-lockfile` installs dependencies using the existing lockfile.
-- `pnpm dev` starts the development server.
-
-For subsequent starts, run:
+For subsequent starts:
 
 ```sh
 mise exec -- pnpm dev
 ```
 
-The sightings API requires MySQL. Payload Admin separately requires the
-Figma-managed backend environment; do not add dummy backend secrets.
-Inside Figma Make, the development server starts automatically.
+If your shell already uses the pinned Node.js and pnpm versions, `pnpm dev`
+is sufficient.
 
-## Verification
+## Data and demo requirements
 
-Check TypeScript:
+- The app reads the Elanco educational tick-sightings API, so external reports
+  require an internet connection. Map tiles also require internet access.
+- Community reports require a running MySQL server. The server reads
+  `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD` and `MYSQL_DATABASE`.
+  Configure credentials privately in the server environment; never commit them.
+- The database defaults to `dataWatch` on localhost. Use the existing database
+  for the demo. For initial database setup, run `mise exec -- pnpm db:setup`
+  after configuring MySQL; this creates tables and may seed starter reports.
+- Source availability notices identify partial failures. If both data sources
+  are unavailable, the app displays an error instead of fabricated reports.
+- Optional report-photo uploads and the Payload admin still depend on the
+  existing Payload backend configuration. The required Payload packages and
+  image loader remain in the project; removing the `.figma` deployment folder
+  does not replace those services.
+
+## Demo walkthrough
+
+1. Explore the UK map, search or filter reports, and select a location.
+2. Switch between sightings and density views; use **Reset view** after zooming.
+3. Browse UK, regional and location charts using their independent year arrows.
+4. Open the Field Guide and try read-aloud or accessibility preferences.
+5. Browse the identification cards, four at a time.
+6. Submit a community sighting when MySQL is available. Photo uploads also need
+   the configured Payload media backend.
+
+London is the preferred initial selection when a London record is available.
+Explicit shared sighting links select their linked report.
+
+## Project structure
+
+- `src/app/(frontend)/` — pages, UI and the sightings/insights API routes.
+- `src/lib/` — data access, validation, normalization and shared utilities.
+- `src/collections/` and `src/payload.config.ts` — existing Payload setup.
+- `src/app/(payload)/` — Payload admin and API routes.
+- `img/` — the two pet photos used by the website.
+- `scripts/` — MySQL setup utility.
+- `tests/` — API, storage, accessibility and browser regression checks.
+- `server/` — optional NestJS compatibility proxy; the Next.js API is the
+  primary backend. The proxy requires `NEXT_BACKEND_URL`.
+- `dist-server/` — compiled proxy used by `pnpm server:start`; regenerate it
+  with `pnpm server:build` after changing proxy source.
+
+`.figma` deployment files have been removed. `README.md` is the only Markdown
+file maintained in the project source. Dependencies and framework caches may
+contain their own documentation.
+
+## Verify before a demo
 
 ```sh
 mise exec -- pnpm exec tsc --noEmit
+mise exec -- pnpm exec tsc -p server/tsconfig.json --noEmit
 ```
 
-With the development server running, check the homepage and data endpoints from
-another terminal (adjust the port if needed):
+With the development server running:
 
 ```sh
 curl -sS -o /dev/null -w 'Homepage HTTP %{http_code}\n' http://localhost:3000/
@@ -53,38 +90,7 @@ curl -sS -o /dev/null -w 'Sightings HTTP %{http_code}\n' http://localhost:3000/a
 curl -sS -o /dev/null -w 'Insights HTTP %{http_code}\n' http://localhost:3000/api/insights
 ```
 
-## Startup repair history
-
-The original shell used Node 22 and pnpm 12, while the project required Node 24
-and pnpm 10. The dependency install failed on pnpm's release-age check, leaving
-the `next` executable unavailable.
-
-These repair commands were run first:
-
-```sh
-brew install mise
-mise trust .mise.toml
-mise install
-mise install npm:pnpm@10.34.3 --verbose
-```
-
-The last two commands encountered a provenance failure for the original pnpm
-10.34.3 pin. This is historical diagnostic information, not a setup step to
-repeat. Both `.mise.toml` and `package.json` were then updated to pnpm 10.34.9,
-which passed the installer's checks. The successful commands followed:
-
-```sh
-mise install
-mise exec -- node --version
-mise exec -- pnpm --version
-mise exec -- pnpm install --frozen-lockfile
-mise exec -- pnpm exec tsc --noEmit
-mise exec -- pnpm dev
-```
-
-Dependencies installed successfully, TypeScript passed, and the homepage and
-both data endpoints returned HTTP 200. Production deployment and Payload Admin
-were not verified.
-
-See [LOCAL-SETUP.md](LOCAL-SETUP.md) for the complete ordered command history,
-including registry queries and other diagnostic commands.
+Browser regression scripts require Playwright and Chrome in the test environment.
+For example, run `node tests/accessibility-browser.cjs` with the app running.
+Production build/start commands are `pnpm build` and `pnpm start`; the build
+requires the existing Payload backend environment.
