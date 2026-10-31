@@ -3,21 +3,10 @@
     "@nestjs/common": "^12.3.2",
     "@nestjs/core": "^12.3.2",
     "@nestjs/platform-express": "^12.3.2",
-    "@payloadcms/figma": "1.0.0-beta.1",
-    "@payloadcms/next": "4.0.0-beta.3",
-    "@payloadcms/plugin-cloud-storage": "4.0.0-beta.3",
-    "@payloadcms/plugin-mcp": "4.0.0-beta.3",
-    "@payloadcms/richtext-lexical": "4.0.0-beta.3",
-    "@payloadcms/translations": "4.0.0-beta.3",
-    "@payloadcms/ui": "4.0.0-beta.3",
-    "graphql": "^16.8.1",
-    "html-react-parser": "^5.2.10",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
-    "monaco-editor": "0.55.1",
     "mysql2": "^3.24.6",
     "next": "16.4.2",
-    "payload": "4.0.0-beta.3",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "reflect-metadata": "^0.2.2",
@@ -42,7 +31,7 @@
     "node": ">=24.22.1",
     "pnpm": "^9 || ^10 || ^11"
   },
-  "name": "figma-make-app",
+  "name": "tickwatch-uk",
   "packageManager": "pnpm@10.34.9",
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -54,16 +43,14 @@
   "private": true,
   "scripts": {
     "dev": "NODE_OPTIONS=--no-deprecation next dev --port ${PORT:-3000} --hostname 0.0.0.0",
-    "build": "NODE_OPTIONS=--no-deprecation payload build",
-    "start": "NODE_OPTIONS=--no-deprecation next start",
+    "build": "next build",
+    "start": "next start",
     "format": "oxfmt",
-    "generate:importmap": "NODE_OPTIONS=--no-deprecation payload generate:importmap",
-    "generate:types": "NODE_OPTIONS=--no-deprecation payload generate:types",
-    "payload": "NODE_OPTIONS=--no-deprecation payload",
-    "db:setup": "node scripts/setup-mysql.mjs",
+    "db:setup": "node --env-file-if-exists=.env.local scripts/setup-mysql.mjs",
     "server:build": "tsc -p server/tsconfig.json",
     "server:start": "node dist-server/main.js",
-    "server:dev": "nest start --watch --path server/tsconfig.json"
+    "server:dev": "nest start --watch --path server/tsconfig.json",
+    "test:api": "node tests/p0-api.cjs && node tests/p1-api.cjs && node tests/p1-storage.cjs"
   },
   "type": "module",
   "version": "0.0.0"

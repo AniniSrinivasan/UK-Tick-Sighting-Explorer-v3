@@ -7,6 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 import { HttpException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 /** Compatibility proxy only. Next.js owns validation, data access and response shapes. */
 let SightingsService = class SightingsService {
+    // send requests to the Next.js API and return its response
     async forward(path, query = {}, body) {
         const origin = process.env.NEXT_BACKEND_URL;
         if (!origin)

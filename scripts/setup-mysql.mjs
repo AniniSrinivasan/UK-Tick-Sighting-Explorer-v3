@@ -19,6 +19,7 @@ await connection.query(`
     latitude DECIMAL(9,6) NULL, longitude DECIMAL(9,6) NULL,
     species ENUM('sheep','hedgehog','ornate-cow','unknown') NOT NULL,
     severity ENUM('low','moderate','high') NOT NULL, notes TEXT NULL,
+    photo_url TEXT NULL, photo_width INT NULL, photo_height INT NULL,
     source ENUM('community','elanco') NOT NULL DEFAULT 'community',
     status ENUM('pending','verified','rejected') NOT NULL DEFAULT 'pending',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -36,6 +37,16 @@ await connection.query(`
     .filter((name) => coordinateColumns.some((column) => column.COLUMN_NAME === name))
     .map((name) => `MODIFY COLUMN ${name} DECIMAL(9,6) NULL`)
   if (coordinateChanges.length) await connection.query(`ALTER TABLE sightings ${coordinateChanges.join(', ')}`)
+
+// Add missing photo columns to existing installations without changing saved reports.
+const [existingPhotoColumns] = await connection.query(
+  "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sightings' AND COLUMN_NAME IN ('photo_url', 'photo_width', 'photo_height')",
+)
+const photoColumns = [['photo_url', 'TEXT NULL'], ['photo_width', 'INT NULL'], ['photo_height', 'INT NULL']]
+const missingPhotoColumns = photoColumns.filter(([name]) => !existingPhotoColumns.some(column => column.COLUMN_NAME === name))
+if (missingPhotoColumns.length) {
+  await connection.query(`ALTER TABLE sightings ${missingPhotoColumns.map(([name, definition]) => `ADD COLUMN ${name} ${definition}`).join(', ')}`)
+}
 
 // prepare starter sightings for the demo
 const samples = [

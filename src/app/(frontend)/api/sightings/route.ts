@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import sharp from 'sharp'
 import { insertSighting } from '@/lib/mysql'
-import { getPayloadClient } from '@/lib/payload'
 import { regions, species, severity } from '@/lib/sightings-domain'
 import { sightingsResponse } from '@/lib/sightings-service'
+import { deleteLocalPhoto, saveLocalPhoto } from '@/lib/sighting-photos'
 
 export const runtime = 'nodejs'
 
@@ -81,9 +81,11 @@ export async function GET(request: Request) {
 
 // receive a new sighting with an optional photo
 export async function POST(request: Request) {
-  const contentType = request.headers.get('content-type')?.toLowerCase() ?? ''
-  const isMultipart = contentType.includes('multipart/form-data')
-  const isJSON = contentType.includes('application/json')
+  // Preserve the case-sensitive upload boundary; normalize only the media type.
+  const contentType = request.headers.get('content-type') ?? ''
+  const mediaType = contentType.split(';', 1)[0].trim().toLowerCase()
+  const isMultipart = mediaType === 'multipart/form-data'
+  const isJSON = mediaType === 'application/json'
   if (!isMultipart && !isJSON) {
     return Response.json({ error: 'Send a JSON or multipart report.', errors: { form: 'Unsupported request content type.' } }, { status: 400 })
   }
@@ -132,7 +134,7 @@ export async function POST(request: Request) {
     const uploadedPhoto = uploadedPhotos[0]
     if (uploadedPhoto instanceof File) {
       if (uploadedPhoto.name || uploadedPhoto.size) photo = uploadedPhoto
-    } else if (uploadedPhoto !== undefined) {
+    } else if (uploadedPhoto !== undefined && uploadedPhoto !== '') {
       return Response.json({ error: 'Please check the highlighted fields.', errors: { photo: 'Choose an image file.' } }, { status: 400 })
     }
   } else {
@@ -188,30 +190,10 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Please check the highlighted fields.', errors: { photo: normalizedPhoto } }, { status: 400 })
     }
 
-    const payload = normalizedPhoto ? await getPayloadClient() : undefined
-    let photoMediaId: string | undefined
+    let localPhoto: Awaited<ReturnType<typeof saveLocalPhoto>> | undefined
     try {
-      let photoUrl: string | undefined
-      let photoWidth: number | undefined
-      let photoHeight: number | undefined
-      if (payload && normalizedPhoto) {
-        // upload the processed image to the CMS media collection
-        const media = await payload.create({
-          collection: 'media',
-          context: { sightingPhotoUpload: true },
-          data: { alt: `Photo submitted with a tick sighting at ${locationName}` },
-          file: { data: normalizedPhoto.data, mimetype: 'image/webp', name: normalizedPhoto.name, size: normalizedPhoto.size },
-          overrideAccess: false,
-          user: null,
-        })
-        photoMediaId = media.id
-        photoUrl = media.url ?? undefined
-        photoWidth = media.width ?? normalizedPhoto.width
-        photoHeight = media.height ?? normalizedPhoto.height
-        if (typeof photoMediaId !== 'string' || !photoUrl || !photoWidth || !photoHeight) {
-          throw new Error('Payload did not return usable uploaded image details.')
-        }
-      }
+      // Store the processed photo on the backend before saving its report.
+      if (normalizedPhoto) localPhoto = await saveLocalPhoto(normalizedPhoto.data)
 
       // save the report and its photo reference in MySQL
       const doc = await insertSighting({
@@ -223,24 +205,21 @@ export async function POST(request: Request) {
         species: kind,
         severity: activity,
         notes: typeof body.notes === 'string' ? body.notes.trim().slice(0, 1000) : undefined,
-        photoMediaId,
-        photoUrl,
-        photoWidth,
-        photoHeight,
+        photoUrl: localPhoto?.url,
+        photoWidth: normalizedPhoto?.width,
+        photoHeight: normalizedPhoto?.height,
       })
       return Response.json({ data: doc, message: 'Report received and awaiting verification.' }, { status: 201 })
     } catch (error) {
-      // remove the uploaded photo if saving the report fails
-      if (payload && photoMediaId) {
-        try {
-          await payload.delete({ collection: 'media', id: photoMediaId, overrideAccess: true })
-        } catch (cleanupError) {
-          payload.logger.error({ err: cleanupError, msg: 'Failed to remove an unattached sighting photo after report saving failed.' })
-        }
+      if (localPhoto) {
+        await deleteLocalPhoto(localPhoto.filename).catch(cleanupError => {
+          console.error('Failed to remove an unattached local sighting photo:', cleanupError)
+        })
       }
       throw error
     }
-  } catch {
+  } catch (error) {
+    console.error('Could not save sighting report:', error)
     return Response.json({ error: 'We could not save this report. Please try again.' }, { status: 500 })
   }
 }

@@ -12,13 +12,17 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { SightingsService } from './sightings.service.js';
+// NestJS routes for sightings and insights
 let SightingsController = class SightingsController {
     sightings;
     constructor(sightings) {
         this.sightings = sightings;
     }
+    // forward sightings search requests
     findAll(query) { return this.sightings.findAll(query); }
+    // forward new JSON reports
     create(body) { return this.sightings.create(body); }
+    // forward reporting insights requests
     insights(query) { return this.sightings.insights(query); }
 };
 __decorate([

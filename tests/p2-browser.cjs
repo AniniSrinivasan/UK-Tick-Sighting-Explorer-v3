@@ -3,7 +3,7 @@ const { chromium } = require('playwright')
 const assert = require('node:assert/strict')
 
 const sightings = [
-  { id: 'london-latest', observedAt: '2026-02-02T12:00:00Z', locationName: 'London Park', region: 'London', latitude: 51.5, longitude: -0.1, species: 'sheep', severity: 'low', photoMediaId: 'media-photo', photoUrl: '/api/media/file/photo.webp', photoWidth: 1, photoHeight: 1, source: 'community' },
+  { id: 'london-latest', observedAt: '2026-02-02T12:00:00Z', locationName: 'London Park', region: 'London', latitude: 51.5, longitude: -0.1, species: 'sheep', severity: 'low', photoUrl: '/api/sighting-photos/00000000-0000-4000-8000-000000000001.webp', photoWidth: 1, photoHeight: 1, source: 'community' },
   { id: 'london-march', observedAt: '2025-03-07T12:00:00Z', locationName: 'London Park', region: 'London', latitude: 51.5, longitude: -0.1, species: 'hedgehog', severity: 'moderate', source: 'community' },
   { id: 'london-january', observedAt: '2025-01-15T12:00:00Z', locationName: 'London Park', region: 'London', latitude: 51.5, longitude: -0.1, species: 'unknown', severity: 'low', source: 'community' },
   { id: 'bristol-recent', observedAt: '2026-03-03T12:00:00Z', locationName: 'Bristol', region: 'South West', latitude: 51.4545, longitude: -2.5879, species: 'sheep', severity: 'high', source: 'community' },
@@ -25,7 +25,7 @@ const seasonalHistory = [
       body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#b6d6df"/></svg>',
     }))
     const photoPng = await require('sharp')({ create: { width: 1, height: 1, channels: 3, background: '#2a5' } }).png().toBuffer()
-    await page.route('**/api/media/file/photo.webp**', route => route.fulfill({ contentType: 'image/png', body: photoPng }))
+    await page.route('**/api/sighting-photos/00000000-0000-4000-8000-000000000001.webp**', route => route.fulfill({ contentType: 'image/png', body: photoPng }))
     const seasonalRequestUrls = []
     await page.route('**/api/sightings*', route => {
       if (route.request().method() === 'POST') {

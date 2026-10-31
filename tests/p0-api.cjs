@@ -3,32 +3,21 @@
 // Exercise the actual route with isolated storage/upstream adapters; no real records are written.
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
-const ts = require('typescript')
-const vm = require('node:vm')
+const os = require('node:os')
+const path = require('node:path')
+const photosDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'tickwatch-photo-test-'))
+const previousDirectory = process.env.SIGHTING_PHOTO_DIRECTORY
+process.env.SIGHTING_PHOTO_DIRECTORY = photosDirectory
 let stored = []
 let localAvailable = true
 let external = []
 let externalAvailable = true
-let failMediaCreate = false
-const deletedMedia = []
-const mediaPayload = {
-  create: async ({ file, context, overrideAccess, user }) => {
-    if (failMediaCreate) throw Error('media unavailable')
-    assert.equal(file.mimetype, 'image/webp')
-    assert.equal(context.sightingPhotoUpload, true)
-    assert.equal(overrideAccess, false)
-    assert.equal(user, null)
-    return { id: 'media-photo', url: '/api/media/file/sighting.webp' }
-  },
-  delete: async ({ id }) => { deletedMedia.push(id) },
-  logger: { error: () => {} },
-}
 const storage = {
   listSightings: async () => { if (!localAvailable) throw Error(); return stored },
   insertSighting: async (input) => { if (!localAvailable) throw Error(); const row = { ...input, id: 'saved', source: 'community' }; stored.push(row); return row },
 }
 const createLoader = require('./load-ts.cjs')
-const loader = () => createLoader({ overrides: { 'src/lib/mysql.ts': storage, 'src/lib/payload.ts': { getPayloadClient: async () => mediaPayload } }, globals: {
+const loader = () => createLoader({ overrides: { 'src/lib/mysql.ts': storage }, globals: {
   fetch: async () => { if (!externalAvailable) throw Error(); return Response.json(external) },
 } })
 const { POST } = loader()('src/app/(frontend)/api/sightings/route.ts')
@@ -75,12 +64,11 @@ const get = () => GET(new Request('http://test/api/sightings'))
   const uploaded = await postForm(valid, image)
   assert.equal(uploaded.status, 201)
   const uploadedReport = await uploaded.json()
-  assert.equal(uploadedReport.data.photoMediaId, 'media-photo')
-  assert.equal(uploadedReport.data.photoUrl, '/api/media/file/sighting.webp')
+  assert.match(uploadedReport.data.photoUrl, /^\/api\/sighting-photos\/[\da-f-]+\.webp$/)
   assert.equal(uploadedReport.data.photoWidth, 2)
-  assert.equal(stored.at(-1).photoMediaId, 'media-photo')
+  assert.equal(stored.at(-1).photoUrl, uploadedReport.data.photoUrl)
   const reportsWithPhotos = await (await get()).json()
-  assert.equal(reportsWithPhotos.data[0].photoUrl, '/api/media/file/sighting.webp')
+  assert.equal(reportsWithPhotos.data[0].photoUrl, uploadedReport.data.photoUrl)
   const invalidPhoto = await postForm(valid, new File([Buffer.from('not an image')], 'invalid.png', { type: 'image/png' }))
   assert.equal(invalidPhoto.status, 400)
   assert.ok((await invalidPhoto.json()).errors.photo)
@@ -95,13 +83,18 @@ const get = () => GET(new Request('http://test/api/sightings'))
   const oversizedPhoto = await postForm(valid, new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'large.png', { type: 'image/png' }))
   assert.equal(oversizedPhoto.status, 400)
   assert.ok((await oversizedPhoto.json()).errors.photo)
-  failMediaCreate = true
-  assert.equal((await postForm(valid, image)).status, 500)
-  failMediaCreate = false
+  const diskFailure = createLoader({ overrides: { 'src/lib/mysql.ts': storage, 'src/lib/sighting-photos.ts': { saveLocalPhoto: async () => { throw Error('Disk unavailable') } } } })('src/app/(frontend)/api/sightings/route.ts').POST
+  const diskFailureForm = new FormData()
+  for (const [field, value] of Object.entries(valid)) diskFailureForm.set(field, String(value))
+  diskFailureForm.set('photo', image)
+  const beforeDiskFailure = stored.length
+  assert.equal((await diskFailure(new Request('http://test/api/sightings', { method: 'POST', body: diskFailureForm }))).status, 500)
+  assert.equal(stored.length, beforeDiskFailure)
+  const filesBeforeFailure = fs.readdirSync(photosDirectory)
   localAvailable = false
   assert.equal((await postForm(valid, image)).status, 500)
   localAvailable = true
-  assert.deepEqual(deletedMedia, ['media-photo'])
+  assert.deepEqual(fs.readdirSync(photosDirectory), filesBeforeFailure, 'Remove photos when database saving fails')
   for (const missing of [null, undefined, '', ' ']) {
     const response = await post({ ...valid, latitude: missing, longitude: missing })
     assert.equal(response.status, 201)
@@ -139,5 +132,62 @@ const get = () => GET(new Request('http://test/api/sightings'))
   externalAvailable = true; external = { unexpected: [] }
   assert.equal((await (await get()).json()).meta.externalAvailable, false)
   assert.equal((await post(valid)).status, 500)
-  console.log('P0 API checks passed: JSON and multipart reports, field validation, image decoding/limits, Media upload and association, orphan cleanup, save/read, source availability and failures.')
-})().catch(error => { console.error(error); process.exitCode = 1 })
+
+  // Browser multipart boundaries can contain uppercase letters and must keep their original case.
+  localAvailable = true
+  const webp = await sharp(png).webp().toBuffer()
+  for (const photoBytes of [null, webp]) {
+    const storedBefore = stored.length
+    const boundary = '----WebKitFormBoundaryTickWatchAaBb123'
+    const parts = Object.entries(valid).map(([name, value]) => Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`,
+    ))
+    if (photoBytes) {
+      parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="tick_pic.webp"\r\nContent-Type: image/webp\r\n\r\n`))
+      parts.push(photoBytes, Buffer.from('\r\n'))
+    }
+    parts.push(Buffer.from(`--${boundary}--\r\n`))
+    const response = await POST(new Request('http://test/api/sightings', {
+      method: 'POST',
+      headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+      body: Buffer.concat(parts),
+    }))
+    const report = await response.json()
+    assert.equal(response.status, 201, JSON.stringify(report))
+    assert.equal(report.data.locationName, valid.locationName)
+    assert.equal(report.data.latitude, Number(valid.latitude))
+    if (photoBytes) assert.match(report.data.photoUrl, /^\/api\/sighting-photos\//)
+    else assert.equal(report.data.photoUrl, undefined)
+    assert.equal(stored.length, storedBefore + 1)
+    assert.equal(stored.at(-1).locationName, valid.locationName)
+    assert.equal(stored.at(-1).photoUrl, report.data.photoUrl)
+  }
+  // Uploaded photos must load through the backend and use generated filenames only.
+  {
+    const saved = await postForm(valid, image)
+    assert.equal(saved.status, 201)
+    const { data } = await saved.json()
+    assert.match(data.photoUrl, /^\/api\/sighting-photos\/[\da-f-]+\.webp$/)
+    const filename = data.photoUrl.split('/').at(-1)
+    const { GET: getPhoto } = createLoader()('src/app/(frontend)/api/sighting-photos/[filename]/route.ts')
+    const loaded = await getPhoto(new Request(`http://test${data.photoUrl}`), { params: Promise.resolve({ filename }) })
+    assert.equal(loaded.status, 200)
+    assert.equal(loaded.headers.get('content-type'), 'image/webp')
+    assert.equal((await sharp(Buffer.from(await loaded.arrayBuffer())).metadata()).format, 'webp')
+    for (const invalid of ['../secret.webp', 'invalid.webp', '00000000-0000-4000-8000-000000000000.webp']) {
+      assert.equal((await getPhoto(new Request('http://test'), { params: Promise.resolve({ filename: invalid }) })).status, 404)
+    }
+    const beforeFailedSave = fs.readdirSync(photosDirectory)
+    localAvailable = false
+    assert.equal((await postForm(valid, image)).status, 500)
+    assert.deepEqual(fs.readdirSync(photosDirectory), beforeFailedSave, 'Failed reports must not leave uploaded photos behind')
+    localAvailable = true
+    // The browser sends an empty file input when no photo is chosen.
+    assert.equal((await postForm(valid, new File([], '', { type: 'application/octet-stream' }))).status, 201)
+  }
+  console.log('P0 API checks passed: JSON and multipart reports, field validation, image decoding/limits, backend photo storage, photo serving, orphan cleanup, save/read, source availability and failures.')
+})().catch(error => { console.error(error); process.exitCode = 1 }).finally(() => {
+  fs.rmSync(photosDirectory, { recursive: true, force: true })
+  if (previousDirectory === undefined) delete process.env.SIGHTING_PHOTO_DIRECTORY
+  else process.env.SIGHTING_PHOTO_DIRECTORY = previousDirectory
+})

@@ -48,7 +48,6 @@ async function initialize(): Promise<Pool> {
       species ENUM('sheep','hedgehog','ornate-cow','unknown') NOT NULL,
       severity ENUM('low','moderate','high') NOT NULL,
       notes TEXT NULL,
-      photo_media_id VARCHAR(255) NULL,
       photo_url TEXT NULL,
       photo_width INT NULL,
       photo_height INT NULL,
@@ -71,13 +70,12 @@ async function initialize(): Promise<Pool> {
   if (coordinateChanges.length) await pool.query(`ALTER TABLE sightings ${coordinateChanges.join(', ')}`)
 
   const photoColumns = [
-    ['photo_media_id', 'VARCHAR(255) NULL'],
     ['photo_url', 'TEXT NULL'],
     ['photo_width', 'INT NULL'],
     ['photo_height', 'INT NULL'],
   ] as const
   const [existingPhotoColumns] = await pool.query<RowDataPacket[]>(
-    "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sightings' AND COLUMN_NAME IN ('photo_media_id', 'photo_url', 'photo_width', 'photo_height')",
+    "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sightings' AND COLUMN_NAME IN ('photo_url', 'photo_width', 'photo_height')",
   )
   const existingPhotoColumnNames = new Set(existingPhotoColumns.map((column) => column.COLUMN_NAME))
   const missingPhotoColumns = photoColumns.filter(([name]) => !existingPhotoColumnNames.has(name))
@@ -117,7 +115,6 @@ export type DatabaseSighting = {
   species: string
   severity: string
   notes?: string
-  photoMediaId?: string
   photoUrl?: string
   photoWidth?: number
   photoHeight?: number
@@ -146,7 +143,7 @@ export async function listSightings(filters: {
   }
   const [rows] = await db.query<RowDataPacket[]>({ sql: `SELECT id, DATE_FORMAT(observed_at, '%Y-%m-%dT%H:%i:%sZ') AS observedAt,
       location_name AS locationName, region, latitude, longitude, species, severity, notes,
-      photo_media_id AS photoMediaId, photo_url AS photoUrl, photo_width AS photoWidth, photo_height AS photoHeight, source
+      photo_url AS photoUrl, photo_width AS photoWidth, photo_height AS photoHeight, source
      FROM sightings ${clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''}
      ORDER BY observed_at DESC, id ASC LIMIT ${SOURCE_LIMIT + 1}`,
     values, timeout: 5000 },
@@ -160,9 +157,9 @@ export async function insertSighting(input: Omit<DatabaseSighting, 'id' | 'sourc
   const id = randomUUID()
   await db.execute(
     `INSERT INTO sightings
-     (id, observed_at, location_name, region, latitude, longitude, species, severity, notes, photo_media_id, photo_url, photo_width, photo_height, source, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'community', 'pending')`,
-    [id, input.observedAt.slice(0, 19).replace('T', ' '), input.locationName, input.region, input.latitude, input.longitude, input.species, input.severity, input.notes ?? null, input.photoMediaId ?? null, input.photoUrl ?? null, input.photoWidth ?? null, input.photoHeight ?? null],
+     (id, observed_at, location_name, region, latitude, longitude, species, severity, notes, photo_url, photo_width, photo_height, source, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'community', 'pending')`,
+    [id, input.observedAt.slice(0, 19).replace('T', ' '), input.locationName, input.region, input.latitude, input.longitude, input.species, input.severity, input.notes ?? null, input.photoUrl ?? null, input.photoWidth ?? null, input.photoHeight ?? null],
   )
   return { id, ...input, source: 'community' }
 }

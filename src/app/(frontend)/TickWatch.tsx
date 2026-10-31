@@ -8,7 +8,7 @@ import LeafletSightingsMap from './LeafletSightingsMap'
 import { AccessibilityProvider, AccessibilityPanel, GuideReadAloud } from './AccessibilityPreferences'
 import LocationMapPicker, { MapPinIcon, type PinnedLocation } from './LocationMapPicker'
 
-export type Sighting = { id: string; observedAt: string; locationName: string; region: string; latitude: number | null; longitude: number | null; species: string; originalSpecies?: string; severity: string; notes?: string; photoMediaId?: string; photoUrl?: string; photoWidth?: number; photoHeight?: number; source: string; reportCount?: number }
+export type Sighting = { id: string; observedAt: string; locationName: string; region: string; latitude: number | null; longitude: number | null; species: string; originalSpecies?: string; severity: string; notes?: string; photoUrl?: string; photoWidth?: number; photoHeight?: number; source: string; reportCount?: number }
 
 export type MappedSighting = Sighting & { latitude: number; longitude: number }
 type SpeciesOption = { value: string; label: string; count: number }
@@ -607,7 +607,8 @@ export default function TickWatch() {
         {viewState === 'error' && <p role="alert" className="mb-3 rounded-xl bg-[#482822] px-4 py-3 text-sm">{emptyMessage} <button className="underline" onClick={() => setReload((value) => value + 1)}>Retry loading</button></p>}
         {availability && (!availability.localAvailable || !availability.externalAvailable) && <p role="status" className="mb-3 rounded-xl bg-[#443919] px-4 py-3 text-sm">Partial results: {availability.localAvailable ? 'Elanco field data is unavailable. Showing community reports only.' : 'Community reports are unavailable. Showing Elanco field data only.'}</p>}
         {resultMeta.truncated && viewState === 'ready' && <p role="status" className="mb-3 rounded-xl bg-[#443919] p-3 text-sm">Results reached the source limit. Totals cover the retrieved subset; narrow your dates or location for more complete results.</p>}
-        {unmappedCount > 0 && <p role="status" className="mb-3 text-sm text-[#aabbb2]">{unmappedCount} {unmappedCount === 1 ? 'report has' : 'reports have'} no complete coordinates and cannot be shown on the map.</p>}
+        {/* Highlight reports that cannot be placed on the map. */}
+        {unmappedCount > 0 && <p role="status" className="mb-3 text-sm text-[#edb27d]">{unmappedCount} {unmappedCount === 1 ? 'report has' : 'reports have'} no complete coordinates and cannot be shown on the map.</p>}
         {status && <p className="mb-3 rounded-xl bg-[#243a31] px-4 py-3 text-sm" role="status">{status}</p>}
         <div id="map" className="isolate grid min-h-[610px] overflow-hidden rounded-2xl border border-[#30443c] bg-[#172420] lg:grid-cols-[1fr_390px]">
           <LeafletSightingsMap sightings={mapped} selectedId={selected?.id ?? ''} emptyMessage={filtered.length && !mapped.length ? 'These reports have no complete coordinates to display on the map.' : emptyMessage} onSelect={setSelected}/>

@@ -101,7 +101,6 @@ export function normalizeRows(rows: unknown[], origin: 'local' | 'external') {
       species: normalizedSpecies, severity: normalizedSeverity,
       originalSpecies: normalizedSpecies === 'unknown' && rawSpecies && rawSpecies !== 'unknown' ? text(row.species) : undefined,
       notes: text(row.notes).slice(0, 1000) || undefined,
-      photoMediaId: origin === 'local' ? text(row.photoMediaId) || undefined : undefined,
       photoUrl: origin === 'local' ? text(row.photoUrl) || undefined : undefined,
       photoWidth: origin === 'local' ? decimal(row.photoWidth, 1, 100000) ?? undefined : undefined,
       photoHeight: origin === 'local' ? decimal(row.photoHeight, 1, 100000) ?? undefined : undefined,

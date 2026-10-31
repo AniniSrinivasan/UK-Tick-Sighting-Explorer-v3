@@ -7,6 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 import { Module } from '@nestjs/common';
 import { SightingsController } from './sightings.controller.js';
 import { SightingsService } from './sightings.service.js';
+// register the sightings controller and proxy service
 let AppModule = class AppModule {
 };
 AppModule = __decorate([
