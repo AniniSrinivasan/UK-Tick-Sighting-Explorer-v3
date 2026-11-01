@@ -34,12 +34,30 @@ const assert = require('node:assert/strict')
       // Leaflet rounds the centre to pixels during container resizing.
       const offset = await page.evaluate(({ original, restored }) => testMap.project(original.center, original.zoom).distanceTo(testMap.project(restored.center, restored.zoom)), { original, restored })
       assert.ok(offset < 1.5, 'Reset restores the default centre within pixel rounding')
+
+      // A running Leaflet zoom previously swallowed the reset and left the map zoomed in.
+      for (const mode of ['Reported tick density', 'Sightings']) {
+        await page.getByRole('button', { name: mode, exact: true }).click()
+        await page.evaluate(zoom => testMap.setView([51.5, -0.1], zoom + 2, { animate: true }), original.zoom)
+        await page.waitForFunction(() => testMap._animatingZoom === true)
+        await reset.click()
+        await page.waitForFunction(zoom => !testMap._animatingZoom && testMap.getZoom() === zoom, original.zoom)
+        const resetAfterZoom = await page.evaluate(() => ({ center: testMap.getCenter(), ukVisible: testMap.getBounds().contains([[49.8, -8.7], [61, 2]]) }))
+        assert.ok(resetAfterZoom.ukVisible, 'Reset during an animated zoom restores the full UK')
+        const resetOffset = await page.evaluate(({ original, center }) => testMap.project(original.center, original.zoom).distanceTo(testMap.project(center, original.zoom)), { original, center: resetAfterZoom.center })
+        assert.ok(resetOffset < 1.5, 'Reset during an animated zoom restores the UK centre')
+        // Resetting an already restored map must not interfere with the next user zoom.
+        await reset.click()
+        await page.evaluate(zoom => testMap.setZoom(zoom + 1, { animate: false }), original.zoom)
+        assert.equal(await page.evaluate(() => testMap.getZoom()), original.zoom + 1)
+        await reset.click()
+      }
     }
     const photo = page.getByAltText('Two dogs and two cats together on a mossy log in woodland')
     await photo.scrollIntoViewIfNeeded()
     await photo.evaluate(img => img.decode())
     assert.ok(await photo.evaluate(img => img.naturalWidth > 0 && img.naturalHeight > 0))
     assert.deepEqual(errors, [])
-    console.log('Passed: UK bounds and zoom limits, reset after zoom/pan, desktop/mobile, woodland pet image, no runtime errors.')
+    console.log('Passed: UK bounds and zoom limits, reset after zoom/pan and during animated zooms in both modes, repeated reset, desktop/mobile, woodland pet image, no runtime errors.')
   } finally { await browser.close() }
 })().catch(error => { console.error(error); process.exitCode = 1 })

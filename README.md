@@ -156,6 +156,10 @@ JSON reports; send multipart photo uploads directly to the Next.js API.
 
 ## Page behaviour
 
+**Reset view** returns the map to the full UK overview in both sightings and
+density modes. If a zoom animation is running, the reset takes effect when it
+finishes. Search and report filters stay selected.
+
 London is the preferred initial selection when a matching location named London
 exists. Otherwise, the first matching report is selected. Shared `?sighting=...`
 links select a loaded report or show a notice if it is unavailable.

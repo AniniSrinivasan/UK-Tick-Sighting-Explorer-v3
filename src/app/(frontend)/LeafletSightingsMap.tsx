@@ -6,9 +6,21 @@ import type { MappedSighting as Sighting } from './TickWatch'
 
 // Includes Northern Ireland, the Isles of Scilly and Shetland.
 const ukBounds: [[number, number], [number, number]] = [[49.8, -8.7], [61, 2]]
+const pendingResets = new WeakSet<LeafletMap>()
 // reset the map to the UK overview
 function resetUKView(map: LeafletMap) {
   map.stop()
+  // Leaflet stops pans immediately, but an active zoom must finish before it accepts a new view.
+  if (map.getPane('mapPane')?.classList.contains('leaflet-zoom-anim')) {
+    if (!pendingResets.has(map)) {
+      pendingResets.add(map)
+      map.once('zoomend', () => {
+        pendingResets.delete(map)
+        resetUKView(map)
+      })
+    }
+    return
+  }
   map.invalidateSize({ animate: false })
   // getBoundsZoom clamps to the existing minimum; clear it before recalculating.
   map.setMinZoom(0)
